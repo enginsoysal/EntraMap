@@ -1,5 +1,13 @@
 # Change Log
 
+## 0.3.6 - 2026-04-20
+
+- Bumped application version to 0.3.6
+- Fixed graph layout root selection to prioritize the searched object (device/app/policy/user/group)
+- Switched App search from Entra service principals to Intune mobile apps (Company Portal catalog)
+- Switched App map/details endpoints to Intune mobile apps and assignment targets
+- Added delegated scope `DeviceManagementApps.Read.All` for Intune app visibility
+
 ## 0.3.5 - 2026-04-20
 
 - Bumped application version to 0.3.5

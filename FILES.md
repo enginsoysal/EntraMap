@@ -1,6 +1,6 @@
 # Files Reference
 
-Version 0.3.5
+Version 0.3.6
 
 This file describes the purpose of each file in the repository.
 
@@ -14,7 +14,7 @@ Responsibilities:
 - Performs immediate local app sign-out without Microsoft account-picker interaction
 - Stores the MSAL token cache in the Flask session
 - Calls Microsoft Graph
-- Builds graph data for users and groups
+- Builds graph data for users, groups, devices, Intune apps, and CA policies
 - Exposes API endpoints used by the frontend
 - Defines the application version
 

@@ -1,6 +1,6 @@
 # EntraMap
 
-Version 0.3.5
+Version 0.3.6
 
 EntraMap is a Flask web application that signs users in with Microsoft Entra ID and visualizes tenant relationships as an interactive graph. It helps you explore users, devices, groups, applications, and Conditional Access policies from a single screen.
 
@@ -8,7 +8,7 @@ EntraMap is a Flask web application that signs users in with Microsoft Entra ID 
 
 - Multi-tenant Microsoft sign-in with delegated Microsoft Graph permissions
 - Homepage-first login popup flow with contextual onboarding tabs
-- Search for users and groups
+- Search for users, groups, devices, Intune apps, and Conditional Access policies
 - Interactive graph view powered by Cytoscape.js
 - Relationship mapping for:
   - Users to devices
@@ -17,13 +17,21 @@ EntraMap is a Flask web application that signs users in with Microsoft Entra ID 
   - Users and groups to Conditional Access policies
 - Clickable nodes with detail panels
 - Graph node photo rendering for users and groups
-- Double-click drill-down navigation on user and group nodes
+- Double-click drill-down navigation on all supported object types
 - Operational insights panel with quick risk filters
 - JSON export of the current graph for reporting and handover
 - Read-only deep links to Entra portal object pages
 - Frontend Features and How To Use pages embedded in the authentication popup
 - Custom EntraMap favicon and refreshed logo branding
 - Azure App Service friendly deployment model
+
+## Version 0.3.6 Changes
+
+- Bumped the project version to 0.3.6
+- Device map layout now centers on the searched device instead of defaulting to a user root
+- Switched App search from Entra service principals to Intune Company Portal apps (`deviceAppManagement/mobileApps`)
+- Switched App map/details endpoints to Intune mobile apps and assignment targets
+- Added delegated scope `DeviceManagementApps.Read.All` for Intune app visibility
 
 ## Version 0.3.5 Changes
 

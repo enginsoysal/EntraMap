@@ -4,7 +4,7 @@
 
 "use strict";
 
-const APP_CONTEXT = window.APP_CONTEXT || { signedIn: false, version: "0.3.5" };
+const APP_CONTEXT = window.APP_CONTEXT || { signedIn: false, version: "0.3.6" };
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -367,10 +367,17 @@ function hydrateGraphPhotos(nodes) {
 }
 
 function runLayout(animate = true) {
-    // Find the root (user or group node that was searched)
-    const root = cy.nodes('[type="user"]').first().length
-        ? cy.nodes('[type="user"]').first()
-        : cy.nodes('[type="group"]').first();
+    // Root should be the object that was actually searched/loaded.
+    let root = null;
+    if (lastLoadedId) {
+        const loaded = cy.getElementById(lastLoadedId);
+        if (loaded && loaded.length) root = loaded;
+    }
+    if (!root || !root.length) {
+        root = cy.nodes('[type="user"]').first().length
+            ? cy.nodes('[type="user"]').first()
+            : cy.nodes('[type="group"]').first();
+    }
 
     const layout = cy.layout({
         name:           "breadthfirst",
@@ -772,8 +779,8 @@ function buildDetailRows(type, d) {
         }
 
         case "app":
-            row("Publisher",   escHtml(d.publisherName));
-            row("SP type",     escHtml(d.servicePrincipalType));
+            row("Publisher",   escHtml(d.publisher || d.publisherName));
+            row("App type",    escHtml(d["@odata.type"] || d.servicePrincipalType));
             row("Description", escHtml(d.description));
             rowMono("App ID",    d.appId);
             rowMono("Object ID", d.id);
@@ -826,7 +833,7 @@ function getPortalUrl(type, id) {
         user: `https://entra.microsoft.com/#view/Microsoft_AAD_UsersAndTenants/UserProfileMenuBlade/~/overview/userId/${id}`,
         group: `https://entra.microsoft.com/#view/Microsoft_AAD_IAM/GroupDetailsMenuBlade/~/Overview/groupId/${id}`,
         device: `https://entra.microsoft.com/#view/Microsoft_AAD_Devices/DeviceDetailsMenuBlade/~/Overview/objectId/${id}`,
-        app: `https://entra.microsoft.com/#view/Microsoft_AAD_IAM/StartboardApplicationsMenuBlade/~/AppAppsPreview/objectId/${id}`,
+        app: `https://intune.microsoft.com/#view/Microsoft_Intune_Apps/AppsMenu/~/allApps`,
         ca_policy: `https://entra.microsoft.com/#view/Microsoft_AAD_ConditionalAccess/ConditionalAccessBlade/~/Policies/policyId/${id}`,
     };
 
