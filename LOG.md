@@ -1,5 +1,12 @@
 # Change Log
 
+## 0.3.1 - 2026-04-20
+
+- Bumped application version to 0.3.1
+- Implemented true popup window sign-in behavior for Microsoft authentication buttons
+- Added popup callback completion page that closes itself and refreshes the main application window
+- Added popup callback error pass-through to show login errors on the main page
+
 ## 0.3.0 - 2026-04-20
 
 - Bumped application version to 0.3.0

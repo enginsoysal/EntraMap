@@ -1,20 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="EntraMap favicon">
   <defs>
     <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#2563eb"/>
-      <stop offset="100%" stop-color="#7c3aed"/>
+      <stop offset="0%" stop-color="#0f2a5f"/>
+      <stop offset="100%" stop-color="#0a1d45"/>
+    </linearGradient>
+    <linearGradient id="a" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#22d3ee"/>
+      <stop offset="100%" stop-color="#f97316"/>
     </linearGradient>
   </defs>
+
   <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#g)"/>
-  <g fill="none" stroke="#f8fafc" stroke-width="3" stroke-linecap="round">
-    <path d="M18 20 L32 32 L46 20"/>
-    <path d="M18 44 L32 32 L46 44"/>
-  </g>
-  <g fill="#f8fafc">
-    <circle cx="18" cy="20" r="4"/>
-    <circle cx="46" cy="20" r="4"/>
-    <circle cx="18" cy="44" r="4"/>
-    <circle cx="46" cy="44" r="4"/>
-    <circle cx="32" cy="32" r="5"/>
+  <path d="M32 12 C24 12 18 18 18 26 C18 36 29 45 32 51 C35 45 46 36 46 26 C46 18 40 12 32 12 Z"
+        fill="none" stroke="#f8fafc" stroke-width="2.8" stroke-linejoin="round"/>
+  <circle cx="32" cy="26" r="5.2" fill="#f8fafc"/>
+
+  <g fill="none" stroke="url(#a)" stroke-width="2.4" stroke-linecap="round" opacity="0.95">
+    <path d="M12 44 C19 31, 45 31, 52 44"/>
+    <path d="M20 18 L32 30 L44 18"/>
   </g>
 </svg>

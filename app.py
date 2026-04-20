@@ -36,7 +36,7 @@ app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 Session(app)
 
 GRAPH_BASE = "https://graph.microsoft.com/v1.0"
-APP_VERSION = "0.3.0"
+APP_VERSION = "0.3.1"
 
 CLIENT_ID     = os.getenv("CLIENT_ID", "")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET", "")
@@ -154,6 +154,8 @@ def login():
 
 @app.route("/auth/signin")
 def auth_signin():
+    use_popup = request.args.get("popup") == "1"
+    session["auth_popup"] = use_popup
     session["state"] = str(uuid.uuid4())
     session.modified = True  # Explicitly mark session as modified
     redirect_uri = _redirect_uri()
@@ -168,15 +170,23 @@ def auth_signin():
 
 @app.route(REDIRECT_PATH)
 def auth_callback():
+    use_popup = bool(session.pop("auth_popup", False))
+
     if request.args.get("state") != session.get("state"):
+        if use_popup:
+            return render_template("auth_popup_done.html", success=False, message="State mismatch. Please try again.")
         return redirect(url_for("index", login_error="State mismatch. Please try again."))
 
     if "error" in request.args:
         desc = request.args.get("error_description", request.args.get("error"))
+        if use_popup:
+            return render_template("auth_popup_done.html", success=False, message=desc)
         return redirect(url_for("index", login_error=desc))
 
     code = request.args.get("code")
     if not code:
+        if use_popup:
+            return render_template("auth_popup_done.html", success=False, message="No authorization code was received.")
         return redirect(url_for("index", login_error="No authorization code was received."))
 
     redirect_uri = _redirect_uri()
@@ -188,7 +198,10 @@ def auth_callback():
     _save_cache(cache)
 
     if "error" in result:
-        return redirect(url_for("index", login_error=result.get("error_description", result["error"])))
+        message = result.get("error_description", result["error"])
+        if use_popup:
+            return render_template("auth_popup_done.html", success=False, message=message)
+        return redirect(url_for("index", login_error=message))
 
     claims = result.get("id_token_claims", {})
     session["user"] = {
@@ -197,6 +210,8 @@ def auth_callback():
         "tid":  claims.get("tid", ""),
         "oid":  claims.get("oid", ""),
     }
+    if use_popup:
+        return render_template("auth_popup_done.html", success=True, message="Sign-in completed. You can close this window.")
     return redirect(url_for("index"))
 
 

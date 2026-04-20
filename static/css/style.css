@@ -765,17 +765,17 @@ body {
 
 .auth-modal {
     position: relative;
-    width: min(960px, 96vw);
+    width: min(980px, 96vw);
     max-height: 92vh;
     overflow: auto;
-    border-radius: 18px;
-    border: 1px solid rgba(59,130,246,.24);
+    border-radius: 22px;
+    border: 1px solid rgba(96,165,250,.28);
     background:
-      radial-gradient(120% 130% at 100% 0%, rgba(124,58,237,.2), transparent 42%),
-      radial-gradient(140% 150% at 0% 100%, rgba(37,99,235,.18), transparent 46%),
-      #13162a;
-    box-shadow: 0 30px 90px rgba(0,0,0,.6);
-    padding: 22px;
+      radial-gradient(90% 90% at 0% 0%, rgba(59,130,246,.28), transparent 45%),
+      radial-gradient(100% 100% at 100% 0%, rgba(168,85,247,.26), transparent 48%),
+      linear-gradient(160deg, #171c39 0%, #0f1430 48%, #121733 100%);
+    box-shadow: 0 40px 120px rgba(0,0,0,.65);
+    padding: 24px;
 }
 
 .auth-brand {
@@ -793,8 +793,9 @@ body {
 
 .auth-brand h2 {
     margin: 0;
-    font-size: 1.35rem;
+    font-size: 1.7rem;
     font-weight: 800;
+    letter-spacing: -0.2px;
 }
 
 .auth-brand p {
@@ -817,6 +818,60 @@ body {
     font-size: 0.78rem;
     padding: 6px 14px;
     transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.auth-signin-layout {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: 14px;
+}
+
+.auth-hero,
+.auth-signin-card {
+    border: 1px solid rgba(96,165,250,.24);
+    border-radius: 14px;
+    background: rgba(9,12,28,.48);
+    padding: 14px;
+}
+
+.auth-hero h3 {
+    margin: 0 0 8px;
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: #e6edff;
+}
+
+.auth-hero-stats {
+    margin-top: 12px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+}
+
+.auth-hero-stats div {
+    border: 1px solid rgba(148,163,184,.22);
+    border-radius: 10px;
+    padding: 8px;
+    font-size: 0.72rem;
+    color: #a6b7d8;
+    background: rgba(15,20,48,.78);
+}
+
+.auth-hero-stats span {
+    display: block;
+    color: #dbeafe;
+    font-size: 0.95rem;
+    font-weight: 800;
+    margin-bottom: 1px;
+}
+
+.auth-signin-title {
+    margin: 0 0 10px;
+    color: #c7d2fe;
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 700;
 }
 
 .auth-tab.active,
@@ -883,16 +938,30 @@ body {
 }
 
 .feature-grid article {
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    background: rgba(11,13,22,.52);
+    border: 1px solid rgba(96,165,250,.18);
+    border-radius: 12px;
+    background: rgba(9,12,28,.48);
     padding: 12px;
+    transition: transform 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.feature-grid article:hover {
+    transform: translateY(-2px);
+    border-color: rgba(96,165,250,.46);
+    background: rgba(17,24,39,.68);
 }
 
 .feature-grid i {
-    font-size: 1rem;
-    color: #93c5fd;
-    margin-bottom: 6px;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    color: #bfdbfe;
+    margin-bottom: 7px;
+    background: rgba(59,130,246,.2);
 }
 
 .feature-grid h3 {
@@ -907,19 +976,59 @@ body {
     line-height: 1.4;
 }
 
-.howto-list {
-    margin: 0;
-    padding-left: 18px;
-    color: var(--text-secondary);
-    font-size: 0.86rem;
+.howto-cards {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
 }
 
-.howto-list li { margin-bottom: 7px; }
+.howto-cards article {
+    border: 1px solid rgba(148,163,184,.2);
+    border-radius: 12px;
+    background: rgba(11,13,22,.58);
+    padding: 11px;
+}
 
-.howto-note {
-    margin-top: 10px;
+.howto-cards span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    background: rgba(99,102,241,.2);
+    color: #c4b5fd;
+    font-size: 0.72rem;
+    font-weight: 800;
+    margin-bottom: 8px;
+}
+
+.howto-cards h4 {
+    margin: 0 0 4px;
+    font-size: 0.85rem;
+    color: #dbeafe;
+}
+
+.howto-cards p {
+    margin: 0;
+    font-size: 0.76rem;
+    line-height: 1.45;
+    color: var(--text-secondary);
+}
+
+.howto-banner {
+    margin-top: 11px;
+    border: 1px dashed rgba(96,165,250,.45);
+    border-radius: 12px;
+    background: rgba(59,130,246,.08);
+    color: #c7ddff;
+    font-size: 0.79rem;
+    padding: 10px 11px;
+}
+
+.howto-banner i {
+    margin-right: 7px;
     color: #93c5fd;
-    font-size: 0.8rem;
 }
 
 @media (max-width: 1180px) {
@@ -929,7 +1038,18 @@ body {
 }
 
 @media (max-width: 900px) {
+    .auth-signin-layout,
     .feature-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .howto-cards {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 640px) {
+    .howto-cards {
         grid-template-columns: 1fr;
     }
 }

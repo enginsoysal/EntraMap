@@ -1,6 +1,6 @@
 # EntraMap
 
-Version 0.3.0
+Version 0.3.1
 
 EntraMap is a Flask web application that signs users in with Microsoft Entra ID and visualizes tenant relationships as an interactive graph. It helps you explore users, devices, groups, applications, and Conditional Access policies from a single screen.
 
@@ -24,6 +24,13 @@ EntraMap is a Flask web application that signs users in with Microsoft Entra ID 
 - Frontend Features and How To Use pages embedded in the authentication popup
 - Custom EntraMap favicon and refreshed logo branding
 - Azure App Service friendly deployment model
+
+## Version 0.3.1 Changes
+
+- Bumped the project version to 0.3.1
+- Added true popup window behavior for Microsoft sign-in from frontend buttons
+- Added popup callback completion handling to refresh the main app after successful sign-in
+- Added popup callback error handling to surface login errors back in the main app
 
 ## Version 0.3.0 Changes
 

@@ -4,7 +4,7 @@
 
 "use strict";
 
-const APP_CONTEXT = window.APP_CONTEXT || { signedIn: false, version: "0.3.0" };
+const APP_CONTEXT = window.APP_CONTEXT || { signedIn: false, version: "0.3.1" };
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -907,6 +907,36 @@ function setupAuthOverlayTabs() {
     });
 }
 
+function setupMicrosoftSignInPopup() {
+    document.querySelectorAll(".js-ms-signin").forEach(link => {
+        link.addEventListener("click", (evt) => {
+            evt.preventDefault();
+
+            const href = link.getAttribute("href") || "/auth/signin?popup=1";
+            const width = 560;
+            const height = 720;
+            const left = Math.max(0, Math.round((window.screen.width - width) / 2));
+            const top = Math.max(0, Math.round((window.screen.height - height) / 2));
+            const features = [
+                `width=${width}`,
+                `height=${height}`,
+                `left=${left}`,
+                `top=${top}`,
+                "resizable=yes",
+                "scrollbars=yes",
+            ].join(",");
+
+            const popup = window.open(href, "entramapSignIn", features);
+            if (!popup) {
+                window.location.href = href;
+                return;
+            }
+
+            popup.focus();
+        });
+    });
+}
+
 function enableSignedOutMode() {
     const input = document.getElementById("search-input");
     if (input) {
@@ -937,6 +967,7 @@ function enableSignedOutMode() {
 document.addEventListener("DOMContentLoaded", () => {
     initCytoscape();
     setupAuthOverlayTabs();
+    setupMicrosoftSignInPopup();
 
     if (!APP_CONTEXT.signedIn) {
         enableSignedOutMode();

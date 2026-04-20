@@ -133,44 +133,62 @@
             {% if login_error %}
             <div class="auth-error"><i class="fas fa-circle-exclamation"></i> {{ login_error }}</div>
             {% endif %}
-            <p class="auth-copy">Sign in once, then investigate users, devices, groups, apps, and CA policies from one workspace.</p>
-            <a href="/auth/signin" class="btn-auth-microsoft">
-                <svg class="ms-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 21 21">
-                    <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
-                    <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
-                    <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
-                    <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
-                </svg>
-                Sign in with Microsoft
-            </a>
-            <ul class="auth-bullets">
-                <li>Read-only Graph access only</li>
-                <li>No write operations in your tenant</li>
-                <li>Works for daily admin triage and audit prep</li>
-            </ul>
+
+            <div class="auth-signin-layout">
+                <section class="auth-hero">
+                    <h3>Map Access. Spot Risk. Move Faster.</h3>
+                    <p class="auth-copy">See identity relationships, risky devices, policy exposure, and app access paths in one daily cockpit.</p>
+                    <div class="auth-hero-stats">
+                        <div><span>100%</span> Read-only</div>
+                        <div><span>1 click</span> Risk filters</div>
+                        <div><span>Live</span> Graph context</div>
+                    </div>
+                </section>
+
+                <section class="auth-signin-card">
+                    <p class="auth-signin-title">Secure Microsoft Sign-in</p>
+                    <a href="/auth/signin?popup=1" class="btn-auth-microsoft js-ms-signin">
+                        <svg class="ms-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 21 21">
+                            <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+                            <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+                            <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+                            <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+                        </svg>
+                        Sign in with Microsoft
+                    </a>
+                    <ul class="auth-bullets">
+                        <li>No write operations performed</li>
+                        <li>Tenant data remains in your session context</li>
+                        <li>Built for daily triage and audit workflows</li>
+                    </ul>
+                </section>
+            </div>
         </div>
 
         <div class="auth-pane d-none" data-auth-pane="features">
             <div class="feature-grid">
-                <article><i class="fas fa-sitemap"></i><h3>Relationship Graph</h3><p>Visualize identity paths between users, devices, groups, apps, and CA policies.</p></article>
-                <article><i class="fas fa-image-portrait"></i><h3>Photo-Aware Nodes</h3><p>User and group profile photos render directly inside graph nodes for fast recognition.</p></article>
-                <article><i class="fas fa-bolt"></i><h3>Drill-Down</h3><p>Double-click a user or group to re-center and continue investigation from that object.</p></article>
-                <article><i class="fas fa-shield-heart"></i><h3>Operational Insights</h3><p>Instant counts for unmanaged and non-compliant devices with one-click focus filters.</p></article>
-                <article><i class="fas fa-file-arrow-down"></i><h3>Export JSON</h3><p>Export current graph for handover notes, incident context, and read-only reporting.</p></article>
-                <article><i class="fas fa-up-right-from-square"></i><h3>Portal Deep Links</h3><p>Open selected objects directly in Entra admin portal and copy object IDs quickly.</p></article>
+                <article><i class="fas fa-sitemap"></i><h3>Relationship Map</h3><p>Trace user-to-device-to-group-to-app paths instantly across your tenant.</p></article>
+                <article><i class="fas fa-camera-retro"></i><h3>Photo-First Nodes</h3><p>People and groups are visually recognizable in-graph, not just labels.</p></article>
+                <article><i class="fas fa-route"></i><h3>Drill-Down Pivot</h3><p>Double-click user/group nodes to make that object the new investigation root.</p></article>
+                <article><i class="fas fa-triangle-exclamation"></i><h3>Risk Focus</h3><p>Instantly isolate unmanaged and non-compliant devices with one click.</p></article>
+                <article><i class="fas fa-link"></i><h3>Entra Deep Links</h3><p>Jump to object blades in Entra Admin Center directly from details.</p></article>
+                <article><i class="fas fa-file-export"></i><h3>Evidence Export</h3><p>Export graph JSON for tickets, handovers, incident context and governance.</p></article>
             </div>
         </div>
 
         <div class="auth-pane d-none" data-auth-pane="howto">
-            <ol class="howto-list">
-                <li><strong>Search a user or group:</strong> Start with a name or UPN in the left search bar.</li>
-                <li><strong>Open graph context:</strong> Click a result to load relationships and operational metrics.</li>
-                <li><strong>Inspect details:</strong> Click a node once to open full details, photos, and direct portal actions.</li>
-                <li><strong>Drill into another root:</strong> Double-click any user/group node to pivot investigation instantly.</li>
-                <li><strong>Focus on risk:</strong> Use Unmanaged/Non-compliant filters to isolate potential issues.</li>
-                <li><strong>Share evidence:</strong> Export graph JSON and include it in tickets or governance notes.</li>
-            </ol>
-            <p class="howto-note">Tip: Use this every morning to review identity hygiene before incidents become outages.</p>
+            <div class="howto-cards">
+                <article><span>01</span><h4>Find your starting point</h4><p>Search by UPN, display name, or group name in the left panel.</p></article>
+                <article><span>02</span><h4>Load relationship context</h4><p>Click a result once to load its relationship graph and operational KPIs.</p></article>
+                <article><span>03</span><h4>Investigate fast</h4><p>Click a node for details, then use portal deep link or copy object ID.</p></article>
+                <article><span>04</span><h4>Pivot deeper</h4><p>Double-click user/group nodes to re-root and continue the investigation chain.</p></article>
+                <article><span>05</span><h4>Prioritize risk</h4><p>Use Operational Insights filters to focus immediately on risky devices.</p></article>
+                <article><span>06</span><h4>Share outcome</h4><p>Export JSON and attach it to security tickets or daily operations notes.</p></article>
+            </div>
+            <div class="howto-banner">
+                <i class="fas fa-lightbulb"></i>
+                Daily routine tip: Start each day with unmanaged/non-compliant filters before handling user tickets.
+            </div>
         </div>
     </div>
 </div>

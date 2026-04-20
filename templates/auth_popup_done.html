@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EntraMap Sign-in</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: "Segoe UI", system-ui, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            display: grid;
+            place-items: center;
+            min-height: 100vh;
+        }
+        .card {
+            width: min(440px, 90vw);
+            border: 1px solid #334155;
+            background: #111827;
+            border-radius: 14px;
+            padding: 18px;
+            box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
+        }
+        h1 {
+            margin: 0 0 8px;
+            font-size: 1.05rem;
+        }
+        p {
+            margin: 0;
+            color: #cbd5e1;
+            line-height: 1.5;
+            font-size: 0.92rem;
+        }
+        .ok { color: #86efac; }
+        .fail { color: #fca5a5; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1 class="{{ 'ok' if success else 'fail' }}">{{ 'Sign-in successful' if success else 'Sign-in failed' }}</h1>
+        <p>{{ message }}</p>
+    </div>
+
+    <script>
+        (function () {
+            const success = {{ 'true' if success else 'false' }};
+            const message = {{ message|tojson }};
+
+            try {
+                if (window.opener && !window.opener.closed) {
+                    if (success) {
+                        window.opener.location.reload();
+                    } else {
+                        const target = new URL(window.opener.location.href);
+                        target.searchParams.set("login_error", message);
+                        window.opener.location.replace(target.toString());
+                    }
+                }
+            } catch (e) {
+                // Ignore cross-window issues; manual close fallback remains available.
+            }
+
+            setTimeout(function () {
+                window.close();
+            }, 350);
+        })();
+    </script>
+</body>
+</html>

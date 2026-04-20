@@ -1,6 +1,6 @@
 # Files Reference
 
-Version 0.3.0
+Version 0.3.1
 
 This file describes the purpose of each file in the repository.
 
@@ -53,6 +53,14 @@ Legacy sign-in template kept for compatibility.
 
 Responsibilities:
 - Not used in the primary user flow (homepage popup login is the default)
+
+### templates/auth_popup_done.html
+Popup callback completion template for OAuth sign-in.
+
+Responsibilities:
+- Handles popup sign-in completion state
+- Refreshes or redirects the opener window with success/error context
+- Closes the popup window automatically
 
 ## Static Assets
 
