@@ -261,8 +261,8 @@ async function loadMap(objectType, objectId) {
     lastLoadedId   = objectId;
     const refreshBtn = document.getElementById("btn-refresh");
     const deepRefreshBtn = document.getElementById("btn-deep-refresh");
-    if (refreshBtn) refreshBtn.classList.remove("d-none");
-    if (deepRefreshBtn) deepRefreshBtn.classList.remove("d-none");
+    if (refreshBtn) refreshBtn.disabled = false;
+    if (deepRefreshBtn) deepRefreshBtn.disabled = false;
 
     showGraphLoading(true);
     clearGraph();
