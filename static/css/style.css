@@ -287,6 +287,25 @@ body {
     flex: 1;
 }
 
+/* Photo container */
+.dp-photo-container {
+    margin-bottom: 14px;
+}
+
+.dp-photo-placeholder {
+    width: 100%;
+    aspect-ratio: 1;
+    background: var(--bg-hover);
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    color: var(--text-muted);
+    overflow: hidden;
+}
+
 .dp-row {
     margin-bottom: 12px;
 }

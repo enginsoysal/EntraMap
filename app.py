@@ -5,6 +5,7 @@ Multi-tenant, delegated OAuth2 flow via MSAL.
 
 import os
 import uuid
+import base64
 import requests
 from functools import wraps
 from flask import (
@@ -300,7 +301,8 @@ def user_map(user_id):
 
     user = graph_get(
         "/users/{}?$select=id,displayName,userPrincipalName,jobTitle,department,"
-        "mail,accountEnabled,city,country,mobilePhone".format(user_id),
+        "mail,accountEnabled,city,country,mobilePhone,officeLocation,companyName,"
+        "createdDateTime,lastPasswordChangeDateTime,signInActivity".format(user_id),
         token,
     )
     if not user or "error" in user:
@@ -456,6 +458,54 @@ def get_details(object_type, object_id):
     if "error" in result:
         return jsonify(result), 502
     return jsonify(result)
+
+
+@app.route("/api/photo/user/<user_id>")
+@login_required
+def get_user_photo(user_id):
+    """Fetch user profile photo as base64-encoded data URL"""
+    token = _get_token_from_cache()
+    if not token:
+        return jsonify({"error": "Session expired"}), 401
+    
+    try:
+        headers = {"Authorization": f"Bearer {token}"}
+        resp = requests.get(
+            f"{GRAPH_BASE}/users/{user_id}/photo/$value",
+            headers=headers,
+            timeout=10
+        )
+        if resp.status_code == 200:
+            data_b64 = base64.b64encode(resp.content).decode("utf-8")
+            return jsonify({"photo": f"data:image/jpeg;base64,{data_b64}"})
+        else:
+            return jsonify({"photo": None})
+    except Exception as e:
+        return jsonify({"photo": None, "error": str(e)})
+
+
+@app.route("/api/photo/group/<group_id>")
+@login_required
+def get_group_photo(group_id):
+    """Fetch group photo as base64-encoded data URL"""
+    token = _get_token_from_cache()
+    if not token:
+        return jsonify({"error": "Session expired"}), 401
+    
+    try:
+        headers = {"Authorization": f"Bearer {token}"}
+        resp = requests.get(
+            f"{GRAPH_BASE}/groups/{group_id}/photo/$value",
+            headers=headers,
+            timeout=10
+        )
+        if resp.status_code == 200:
+            data_b64 = base64.b64encode(resp.content).decode("utf-8")
+            return jsonify({"photo": f"data:image/jpeg;base64,{data_b64}"})
+        else:
+            return jsonify({"photo": None})
+    except Exception as e:
+        return jsonify({"photo": None, "error": str(e)})
 
 
 @app.route("/api/me")

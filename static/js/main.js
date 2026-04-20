@@ -14,6 +14,26 @@ const TYPE_META = {
     ca_policy: { label: "CA Policy", icon: "fa-shield-alt", color: "#ef4444", bg: "#2a0a0a", shape: "tag"             },
 };
 
+// ── OS Icon Mapping ────────────────────────────────────────────────────────
+
+const OS_ICONS = {
+    "windows":    { icon: "fa-brands fa-windows", label: "Windows", color: "#0078d4" },
+    "android":    { icon: "fa-brands fa-android", label: "Android", color: "#3ddc84" },
+    "ios":        { icon: "fa-brands fa-apple", label: "iOS", color: "#555555" },
+    "macos":      { icon: "fa-brands fa-apple", label: "macOS", color: "#555555" },
+    "linux":      { icon: "fa-brands fa-linux", label: "Linux", color: "#ff6600" },
+    "chromeos":   { icon: "fa-brands fa-chrome", label: "Chrome OS", color: "#4285f4" },
+};
+
+function getOSIcon(osName) {
+    if (!osName) return null;
+    const os = osName.toLowerCase();
+    for (const [key, meta] of Object.entries(OS_ICONS)) {
+        if (os.includes(key)) return meta;
+    }
+    return null;
+}
+
 // ── State ──────────────────────────────────────────────────────────────────
 
 let cy          = null;
@@ -392,30 +412,76 @@ function buildDetailRows(type, d) {
             ? `<span class="sb yes">Yes</span>`
             : `<span class="sb no">No</span>`;
 
+    // Helper to format date
+    const formatDate = (dateStr) => {
+        if (!dateStr) return "—";
+        try {
+            const d = new Date(dateStr);
+            return d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+        } catch (e) {
+            return dateStr;
+        }
+    };
+
     switch (type) {
         case "user":
-            row("UPN",        escHtml(d.userPrincipalName));
-            row("Email",      escHtml(d.mail));
-            row("Job title",  escHtml(d.jobTitle));
-            row("Department", escHtml(d.department));
-            row("City",       escHtml(d.city));
-            row("Country",    escHtml(d.country));
-            row("Mobile",     escHtml(d.mobilePhone));
-            row("Account",    statusBadge(d.accountEnabled));
+            // Photo placeholder (will be updated asynchronously)
+            rows.push(`<div class="dp-photo-container">
+                <div id="detail-photo" class="dp-photo-placeholder">
+                    <i class="fas fa-user"></i>
+                </div>
+            </div>`);
+            
+            row("UPN",          escHtml(d.userPrincipalName));
+            row("Email",        escHtml(d.mail));
+            row("Job title",    escHtml(d.jobTitle));
+            row("Department",   escHtml(d.department));
+            row("Company",      escHtml(d.companyName));
+            row("Office",       escHtml(d.officeLocation));
+            row("City",         escHtml(d.city));
+            row("Country",      escHtml(d.country));
+            row("Mobile",       escHtml(d.mobilePhone));
+            row("Account",      statusBadge(d.accountEnabled));
+            row("Created",      formatDate(d.createdDateTime));
+            row("Last pwd chg", formatDate(d.lastPasswordChangeDateTime));
+            if (d.signInActivity?.lastSignInDateTime) {
+                row("Last sign-in", formatDate(d.signInActivity.lastSignInDateTime));
+            }
             rowMono("Object ID", d.id);
+            
+            // Load photo asynchronously
+            setTimeout(() => loadUserPhoto(d.id), 100);
             break;
 
-        case "device":
-            row("Operating system",  escHtml(d.operatingSystem));
+        case "device": {
+            const osIcon = getOSIcon(d.operatingSystem);
+            let osDisplay = escHtml(d.operatingSystem || "Unknown");
+            if (osIcon) {
+                osDisplay = `<i class="${osIcon.icon}" style="color:${osIcon.color};margin-right:6px;"></i>${osDisplay}`;
+            }
+            rows.push(`<div class="dp-row">
+                <div class="dp-label">Operating system</div>
+                <div class="dp-value">${osDisplay}</div>
+            </div>`);
+            
             row("Version",           escHtml(d.operatingSystemVersion));
+            row("Display name",      escHtml(d.displayName));
             row("Trust type",        escHtml(d.trustType));
             row("Compliant",         yesNo(d.isCompliant));
             row("Managed",           yesNo(d.isManaged));
-            rowMono("Device ID", d.deviceId);
-            rowMono("Object ID", d.id);
+            rowMono("Device ID",     d.deviceId);
+            rowMono("Object ID",     d.id);
             break;
+        }
 
         case "group": {
+            // Photo placeholder (will be updated asynchronously)
+            rows.push(`<div class="dp-photo-container">
+                <div id="detail-photo" class="dp-photo-placeholder">
+                    <i class="fas fa-users"></i>
+                </div>
+            </div>`);
+            
             row("Description", escHtml(d.description));
             const gtypes = [];
             if (d.groupTypes?.includes("Unified"))          gtypes.push("Microsoft 365");
@@ -424,6 +490,9 @@ function buildDetailRows(type, d) {
             if (d.groupTypes?.includes("DynamicMembership"))gtypes.push("Dynamic");
             row("Type", gtypes.length ? escHtml(gtypes.join(", ")) : "—");
             rowMono("Object ID", d.id);
+            
+            // Load photo asynchronously
+            setTimeout(() => loadGroupPhoto(d.id), 100);
             break;
         }
 
@@ -464,6 +533,42 @@ function buildDetailRows(type, d) {
     }
 
     return rows.length ? rows.join("") : `<p style="color:var(--text-muted);font-size:.82rem;">No details available</p>`;
+}
+
+// ── Photo loading helpers ──────────────────────────────────────────────────
+
+function loadUserPhoto(userId) {
+    fetch(`/api/photo/user/${userId}`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.photo) {
+                const photoEl = document.getElementById("detail-photo");
+                if (photoEl) {
+                    photoEl.innerHTML = `<img src="${data.photo}" alt="User photo" style="width:100%;height:100%;object-fit:cover;border-radius:8px;">`;
+                    photoEl.classList.remove("dp-photo-placeholder");
+                }
+            }
+        })
+        .catch(() => {
+            // Photo load failed, keep placeholder
+        });
+}
+
+function loadGroupPhoto(groupId) {
+    fetch(`/api/photo/group/${groupId}`)
+        .then(r => r.json())
+        .then(data => {
+            if (data.photo) {
+                const photoEl = document.getElementById("detail-photo");
+                if (photoEl) {
+                    photoEl.innerHTML = `<img src="${data.photo}" alt="Group photo" style="width:100%;height:100%;object-fit:cover;border-radius:8px;">`;
+                    photoEl.classList.remove("dp-photo-placeholder");
+                }
+            }
+        })
+        .catch(() => {
+            // Photo load failed, keep placeholder
+        });
 }
 
 // ── UI helpers ────────────────────────────────────────────────────────────
