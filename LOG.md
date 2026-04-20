@@ -1,5 +1,15 @@
 # Change Log
 
+## 0.2.0 - 2026-04-20
+
+- Bumped application version to 0.2.0
+- Added graph node photos for users and groups
+- Added double-click drill-down to re-focus the graph on user and group nodes
+- Added Operational Insights with KPIs and quick filters for unmanaged and non-compliant devices
+- Added JSON export for the currently loaded graph
+- Added read-only object actions in the detail panel (copy object ID and open in Entra portal)
+- Added footer links on signed-in and login views
+
 ## 0.1.0 - 2026-04-20
 
 - Bumped application version to 0.1.0

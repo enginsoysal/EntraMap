@@ -1,6 +1,6 @@
 # EntraMap
 
-Version 0.1.0
+Version 0.2.0
 
 EntraMap is a Flask web application that signs users in with Microsoft Entra ID and visualizes tenant relationships as an interactive graph. It helps you explore users, devices, groups, applications, and Conditional Access policies from a single screen.
 
@@ -15,14 +15,22 @@ EntraMap is a Flask web application that signs users in with Microsoft Entra ID 
   - Groups to enterprise applications
   - Users and groups to Conditional Access policies
 - Clickable nodes with detail panels
+- Graph node photo rendering for users and groups
+- Double-click drill-down navigation on user and group nodes
+- Operational insights panel with quick risk filters
+- JSON export of the current graph for reporting and handover
+- Read-only deep links to Entra portal object pages
 - Azure App Service friendly deployment model
 
-## Version 0.1.0 Changes
+## Version 0.2.0 Changes
 
-- Upgraded the project version to 0.1.0
-- Added server-side session storage for reliable OAuth state handling
-- Added configurable REDIRECT_URI support for local and hosted environments
-- Updated and aligned project documentation for the new release
+- Upgraded the project version to 0.2.0
+- Added graph node photos for users and groups
+- Added double-click drill-down behavior to quickly re-root the graph on user or group objects
+- Added Operational Insights with KPIs and quick focus filters for unmanaged and non-compliant devices
+- Added graph JSON export for read-only reporting workflows
+- Added read-only object actions in detail views (copy object ID and open in Entra portal)
+- Added footer links on both signed-in and login pages
 
 ## Requirements
 

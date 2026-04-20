@@ -31,7 +31,7 @@ app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 Session(app)
 
 GRAPH_BASE = "https://graph.microsoft.com/v1.0"
-APP_VERSION = "0.1.0"
+APP_VERSION = "0.2.0"
 
 CLIENT_ID     = os.getenv("CLIENT_ID", "")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET", "")
