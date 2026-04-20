@@ -1,6 +1,6 @@
 # Files Reference
 
-Version 0.3.1
+Version 0.3.2
 
 This file describes the purpose of each file in the repository.
 
@@ -11,6 +11,7 @@ Main Flask application.
 
 Responsibilities:
 - Handles Microsoft sign-in and sign-out routes
+- Performs immediate local app sign-out without Microsoft account-picker interaction
 - Stores the MSAL token cache in the Flask session
 - Calls Microsoft Graph
 - Builds graph data for users and groups

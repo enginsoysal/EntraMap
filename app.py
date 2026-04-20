@@ -36,7 +36,7 @@ app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 Session(app)
 
 GRAPH_BASE = "https://graph.microsoft.com/v1.0"
-APP_VERSION = "0.3.1"
+APP_VERSION = "0.3.2"
 
 CLIENT_ID     = os.getenv("CLIENT_ID", "")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET", "")
@@ -218,11 +218,7 @@ def auth_callback():
 @app.route("/auth/signout")
 def auth_signout():
     session.clear()
-    logout_url = (
-        "https://login.microsoftonline.com/common/oauth2/v2.0/logout"
-        f"?post_logout_redirect_uri={url_for('index', _external=True)}"
-    )
-    return redirect(logout_url)
+    return redirect(url_for("index"))
 
 
 # ── Main page ─────────────────────────────────────────────────────────────────
