@@ -146,6 +146,7 @@ def login():
 @app.route("/auth/signin")
 def auth_signin():
     session["state"] = str(uuid.uuid4())
+    session.modified = True  # Explicitly mark session as modified
     redirect_uri = _redirect_uri()
     auth_url = _msal_app().get_authorization_request_url(
         SCOPES,
