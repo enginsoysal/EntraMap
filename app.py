@@ -6,6 +6,7 @@ Multi-tenant, delegated OAuth2 flow via MSAL.
 import os
 import uuid
 import base64
+import tempfile
 import requests
 from functools import wraps
 from flask import (
@@ -23,7 +24,11 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", os.urandom(32))
 app.config["SESSION_TYPE"] = "filesystem"
-app.config["SESSION_FILE_DIR"] = os.path.join(os.getcwd(), "flask_session")
+# Azure App Service may run app code from a read-only location.
+# Store server-side session files in a guaranteed writable temp path.
+session_dir = os.getenv("SESSION_FILE_DIR", os.path.join(tempfile.gettempdir(), "entramap_flask_session"))
+os.makedirs(session_dir, exist_ok=True)
+app.config["SESSION_FILE_DIR"] = session_dir
 app.config["SESSION_PERMANENT"] = False
 app.config["SESSION_USE_SIGNER"] = True
 app.config["SESSION_COOKIE_HTTPONLY"] = True
