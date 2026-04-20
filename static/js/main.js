@@ -1119,6 +1119,22 @@ function enableSignedOutMode() {
     }
 }
 
+function enableSignedInMode() {
+    const input = document.getElementById("search-input");
+    if (input) {
+        input.disabled = false;
+        input.placeholder = SEARCH_PLACEHOLDERS[searchType] || "Search...";
+    }
+
+    document.querySelectorAll(".search-tab, #btn-fit, #btn-reset-layout, #btn-export-json, #insight-unmanaged, #insight-noncompliant, #insight-reset")
+        .forEach(el => { el.disabled = false; });
+
+    const refreshBtn = document.getElementById("btn-refresh");
+    const deepRefreshBtn = document.getElementById("btn-deep-refresh");
+    if (refreshBtn) refreshBtn.disabled = !lastLoadedId;
+    if (deepRefreshBtn) deepRefreshBtn.disabled = !lastLoadedId;
+}
+
 // ── Boot ──────────────────────────────────────────────────────────────────
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -1128,6 +1144,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (!APP_CONTEXT.signedIn) {
         enableSignedOutMode();
+    } else {
+        enableSignedInMode();
     }
 
     // Disconnect tenant lightbox
