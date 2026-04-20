@@ -1,5 +1,12 @@
 # Change Log
 
+## 0.3.7 - 2026-04-20
+
+- Bumped application version to 0.3.7
+- App search now tries Intune mobile apps first and falls back to Entra app search when Intune access is unavailable
+- Removed hard Intune search failure behavior to prevent user-facing red error state
+- App map/details now support Intune-first with Entra fallback for compatibility across tenant permission states
+
 ## 0.3.6 - 2026-04-20
 
 - Bumped application version to 0.3.6

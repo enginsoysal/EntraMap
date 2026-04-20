@@ -4,7 +4,7 @@
 
 "use strict";
 
-const APP_CONTEXT = window.APP_CONTEXT || { signedIn: false, version: "0.3.6" };
+const APP_CONTEXT = window.APP_CONTEXT || { signedIn: false, version: "0.3.7" };
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -781,6 +781,7 @@ function buildDetailRows(type, d) {
         case "app":
             row("Publisher",   escHtml(d.publisher || d.publisherName));
             row("App type",    escHtml(d["@odata.type"] || d.servicePrincipalType));
+            row("Assigned",    d.isAssigned == null ? "—" : (d.isAssigned ? "Yes" : "No"));
             row("Description", escHtml(d.description));
             rowMono("App ID",    d.appId);
             rowMono("Object ID", d.id);
