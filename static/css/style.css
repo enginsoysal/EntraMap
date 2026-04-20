@@ -249,6 +249,24 @@ body {
     background: rgba(59,130,246,.12);
 }
 
+#signout-btn {
+    display: inline-flex;
+    align-items: center;
+    color: var(--text-muted);
+    background: none;
+    border: 1px solid var(--border-light);
+    font-size: 0.8rem;
+    padding: 4px 7px;
+    border-radius: 6px;
+    text-decoration: none;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+#signout-btn:hover {
+    color: #f87171;
+    border-color: rgba(239,68,68,.55);
+    background: rgba(239,68,68,.12);
+}
+
 /* ---- Search section -------------------------------------- */
 #search-section {
     padding: 14px 14px 10px;
