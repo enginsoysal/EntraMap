@@ -24,6 +24,41 @@ const SEARCH_PLACEHOLDERS = {
     ca_policy: "Conditional Access policy name...",
 };
 
+function openAuthPopup(url, windowName, width = 560, height = 720) {
+    const left = Math.max(0, Math.round((window.screen.width - width) / 2));
+    const top = Math.max(0, Math.round((window.screen.height - height) / 2));
+    const features = [
+        `width=${width}`,
+        `height=${height}`,
+        `left=${left}`,
+        `top=${top}`,
+        "popup=yes",
+        "resizable=yes",
+        "scrollbars=yes",
+        "toolbar=no",
+        "menubar=no",
+        "status=no",
+        "location=yes",
+    ].join(",");
+
+    const popup = window.open("about:blank", windowName, features);
+    if (!popup) {
+        window.location.href = url;
+        return null;
+    }
+
+    try {
+        popup.document.title = "EntraMap Sign-in";
+        popup.document.body.innerHTML = "<p style='font-family:Segoe UI,system-ui,sans-serif;padding:20px;color:#e5e7eb;background:#0f172a'>Opening Microsoft sign-in...</p>";
+    } catch (_) {
+        // Ignore same-origin bootstrap issues and continue navigation.
+    }
+
+    popup.location.replace(url);
+    popup.focus();
+    return popup;
+}
+
 // ── OS Icon Mapping ────────────────────────────────────────────────────────
 
 const OS_ICONS = {
@@ -645,26 +680,7 @@ async function performSearch(query) {
         const data = await resp.json();
         if (resp.status === 428 && data?.reauth_url) {
             showToast("Intune permissions vernieuwen...", "info");
-            const w = 560;
-            const h = 720;
-            const left = Math.max(0, (window.screen.width - w) / 2);
-            const top = Math.max(0, (window.screen.height - h) / 2);
-            const features = [
-                `width=${w}`,
-                `height=${h}`,
-                `left=${left}`,
-                `top=${top}`,
-                "popup=yes",
-                "resizable=yes",
-                "scrollbars=yes",
-                "toolbar=no",
-                "menubar=no",
-                "status=no",
-            ].join(",");
-            const popup = window.open(data.reauth_url, "entramapConsent", features);
-            if (!popup) {
-                window.location.href = data.reauth_url;
-            }
+            openAuthPopup(data.reauth_url, "entramapConsent");
             renderSearchError("Bevestig permissies in het popupvenster en probeer daarna opnieuw.");
             return;
         }
@@ -1060,30 +1076,7 @@ function setupMicrosoftSignInPopup() {
             evt.preventDefault();
 
             const href = link.getAttribute("href") || "/auth/signin?popup=1";
-            const width = 560;
-            const height = 720;
-            const left = Math.max(0, Math.round((window.screen.width - width) / 2));
-            const top = Math.max(0, Math.round((window.screen.height - height) / 2));
-            const features = [
-                `width=${width}`,
-                `height=${height}`,
-                `left=${left}`,
-                `top=${top}`,
-                "popup=yes",
-                "resizable=yes",
-                "scrollbars=yes",
-                "toolbar=no",
-                "menubar=no",
-                "status=no",
-            ].join(",");
-
-            const popup = window.open(href, "entramapSignIn", features);
-            if (!popup) {
-                window.location.href = href;
-                return;
-            }
-
-            popup.focus();
+            openAuthPopup(href, "entramapSignIn");
         });
     });
 }
