@@ -1,5 +1,11 @@
 # Change Log
 
+## 0.3.10 - 2026-04-20
+
+- Bumped application version to 0.3.10
+- Added automatic Intune permission re-consent flow for App search
+- App search now returns actionable reauth metadata instead of a dead-end error when consent is missing
+
 ## 0.3.9 - 2026-04-20
 
 - Bumped application version to 0.3.9

@@ -36,7 +36,7 @@ app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 Session(app)
 
 GRAPH_BASE = "https://graph.microsoft.com/v1.0"
-APP_VERSION = "0.3.9"
+APP_VERSION = "0.3.10"
 
 CLIENT_ID     = os.getenv("CLIENT_ID", "")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET", "")
@@ -156,7 +156,7 @@ def login():
 @app.route("/auth/signin")
 def auth_signin():
     use_popup = request.args.get("popup") == "1"
-    force_consent = bool(session.pop("require_consent", False))
+    force_consent = (request.args.get("force_consent") == "1") or bool(session.pop("require_consent", False))
     session["auth_popup"] = use_popup
     session["state"] = str(uuid.uuid4())
     session.modified = True  # Explicitly mark session as modified
@@ -350,10 +350,29 @@ def search():
             token,
         )
         if first_page and "error" in first_page:
+            message = (first_page.get("message") or "").lower()
+            needs_consent = any(
+                k in message for k in [
+                    "insufficient privileges",
+                    "authorization_requestdenied",
+                    "consent",
+                    "forbidden",
+                    "permission",
+                ]
+            )
+            if needs_consent:
+                session["require_consent"] = True
+                return jsonify(
+                    {
+                        "error": "Intune permissions require re-consent",
+                        "details": first_page.get("message", ""),
+                        "reauth_url": "/auth/signin?popup=1&force_consent=1",
+                    }
+                ), 428
             return jsonify(
                 {
                     "error": "Intune app search unavailable",
-                    "details": first_page.get("message", "Missing Intune permissions or license."),
+                    "details": first_page.get("message", "Missing Intune permissions or Intune licensing."),
                 }
             ), 502
 

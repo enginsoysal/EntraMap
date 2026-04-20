@@ -4,7 +4,7 @@
 
 "use strict";
 
-const APP_CONTEXT = window.APP_CONTEXT || { signedIn: false, version: "0.3.9" };
+const APP_CONTEXT = window.APP_CONTEXT || { signedIn: false, version: "0.3.10" };
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -560,6 +560,27 @@ async function performSearch(query) {
     try {
         const resp = await fetch(`/api/search?q=${encodeURIComponent(query)}&type=${searchType}`);
         const data = await resp.json();
+        if (resp.status === 428 && data?.reauth_url) {
+            showToast("Intune permissions vernieuwen...", "info");
+            const w = 560;
+            const h = 720;
+            const left = Math.max(0, (window.screen.width - w) / 2);
+            const top = Math.max(0, (window.screen.height - h) / 2);
+            const features = [
+                `width=${w}`,
+                `height=${h}`,
+                `left=${left}`,
+                `top=${top}`,
+                "resizable=yes",
+                "scrollbars=yes",
+            ].join(",");
+            const popup = window.open(data.reauth_url, "entramapConsent", features);
+            if (!popup) {
+                window.location.href = data.reauth_url;
+            }
+            renderSearchError("Bevestig permissies in het popupvenster en probeer daarna opnieuw.");
+            return;
+        }
         if (!resp.ok || data.error) { renderSearchError(data.error || "Search request failed"); return; }
         renderSearchResults(data);
     } catch (err) {
