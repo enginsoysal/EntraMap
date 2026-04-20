@@ -7,10 +7,10 @@
 // ── Constants ──────────────────────────────────────────────────────────────
 
 const TYPE_META = {
-    user:      { label: "Gebruiker", icon: "fa-user",       color: "#3b82f6", bg: "#0f2040", shape: "ellipse"         },
+    user:      { label: "User",      icon: "fa-user",       color: "#3b82f6", bg: "#0f2040", shape: "ellipse"         },
     device:    { label: "Device",    icon: "fa-laptop",     color: "#10b981", bg: "#062620", shape: "round-rectangle" },
-    group:     { label: "Groep",     icon: "fa-users",      color: "#f59e0b", bg: "#2a1800", shape: "diamond"         },
-    app:       { label: "Applicatie",icon: "fa-cube",       color: "#8b5cf6", bg: "#1d0a40", shape: "hexagon"         },
+    group:     { label: "Group",     icon: "fa-users",      color: "#f59e0b", bg: "#2a1800", shape: "diamond"         },
+    app:       { label: "Application",icon: "fa-cube",      color: "#8b5cf6", bg: "#1d0a40", shape: "hexagon"         },
     ca_policy: { label: "CA Policy", icon: "fa-shield-alt", color: "#ef4444", bg: "#2a0a0a", shape: "tag"             },
 };
 
@@ -176,10 +176,10 @@ async function loadMap(objectType, objectId) {
     try {
         const resp = await fetch(`/api/map/${objectType}/${objectId}`);
         const data = await resp.json();
-        if (!resp.ok) { showToast(data.error || "Fout bij ophalen", "error"); return; }
+        if (!resp.ok) { showToast(data.error || "Failed to load data", "error"); return; }
         renderGraph(data);
     } catch (err) {
-        showToast("Netwerkfout: " + err.message, "error");
+        showToast("Network error: " + err.message, "error");
     } finally {
         showGraphLoading(false);
     }
@@ -268,10 +268,10 @@ async function performSearch(query) {
     try {
         const resp = await fetch(`/api/search?q=${encodeURIComponent(query)}&type=${searchType}`);
         const data = await resp.json();
-        if (!resp.ok || data.error) { renderSearchError(data.error || "Zoekopdracht mislukt"); return; }
+        if (!resp.ok || data.error) { renderSearchError(data.error || "Search request failed"); return; }
         renderSearchResults(data);
     } catch (err) {
-        renderSearchError("Netwerkfout: " + err.message);
+        renderSearchError("Network error: " + err.message);
     } finally {
         setSearchSpinner(false);
     }
@@ -284,7 +284,7 @@ function renderSearchResults(items) {
     if (!items.length) {
         const el = document.createElement("div");
         el.className = "sr-empty";
-        el.textContent = "Geen resultaten gevonden";
+        el.textContent = "No results found";
         container.appendChild(el);
         return;
     }
@@ -384,30 +384,30 @@ function buildDetailRows(type, d) {
 
     const statusBadge = (enabled) =>
         enabled !== false
-            ? `<span class="sb on"><i class="fas fa-check-circle"></i> Actief</span>`
-            : `<span class="sb off"><i class="fas fa-times-circle"></i> Uitgeschakeld</span>`;
+            ? `<span class="sb on"><i class="fas fa-check-circle"></i> Enabled</span>`
+            : `<span class="sb off"><i class="fas fa-times-circle"></i> Disabled</span>`;
 
     const yesNo = (val) =>
         val
-            ? `<span class="sb yes">Ja</span>`
-            : `<span class="sb no">Nee</span>`;
+            ? `<span class="sb yes">Yes</span>`
+            : `<span class="sb no">No</span>`;
 
     switch (type) {
         case "user":
             row("UPN",        escHtml(d.userPrincipalName));
-            row("E-mail",     escHtml(d.mail));
-            row("Functie",    escHtml(d.jobTitle));
-            row("Afdeling",   escHtml(d.department));
-            row("Stad",       escHtml(d.city));
-            row("Land",       escHtml(d.country));
-            row("Mobiel",     escHtml(d.mobilePhone));
+            row("Email",      escHtml(d.mail));
+            row("Job title",  escHtml(d.jobTitle));
+            row("Department", escHtml(d.department));
+            row("City",       escHtml(d.city));
+            row("Country",    escHtml(d.country));
+            row("Mobile",     escHtml(d.mobilePhone));
             row("Account",    statusBadge(d.accountEnabled));
             rowMono("Object ID", d.id);
             break;
 
         case "device":
-            row("Besturingssysteem", escHtml(d.operatingSystem));
-            row("Versie",            escHtml(d.operatingSystemVersion));
+            row("Operating system",  escHtml(d.operatingSystem));
+            row("Version",           escHtml(d.operatingSystemVersion));
             row("Trust type",        escHtml(d.trustType));
             row("Compliant",         yesNo(d.isCompliant));
             row("Managed",           yesNo(d.isManaged));
@@ -416,7 +416,7 @@ function buildDetailRows(type, d) {
             break;
 
         case "group": {
-            row("Beschrijving", escHtml(d.description));
+            row("Description", escHtml(d.description));
             const gtypes = [];
             if (d.groupTypes?.includes("Unified"))          gtypes.push("Microsoft 365");
             if (d.securityEnabled)                          gtypes.push("Security");
@@ -430,15 +430,15 @@ function buildDetailRows(type, d) {
         case "app":
             row("Publisher",   escHtml(d.publisherName));
             row("SP type",     escHtml(d.servicePrincipalType));
-            row("Beschrijving",escHtml(d.description));
+            row("Description", escHtml(d.description));
             rowMono("App ID",    d.appId);
             rowMono("Object ID", d.id);
             break;
 
         case "ca_policy": {
             const stateMap = {
-                "enabled":                           `<span class="sb on">Ingeschakeld</span>`,
-                "disabled":                          `<span class="sb off">Uitgeschakeld</span>`,
+                "enabled":                           `<span class="sb on">Enabled</span>`,
+                "disabled":                          `<span class="sb off">Disabled</span>`,
                 "enabledForReportingButNotEnforced": `<span class="sb report">Report-only</span>`,
             };
             row("Status", stateMap[d.state] || escHtml(d.state));
@@ -446,14 +446,14 @@ function buildDetailRows(type, d) {
             const cond = d.conditions || {};
             const appsCond = cond.applications?.includeApplications || [];
             if (appsCond.length) {
-                row("Apps", appsCond.includes("All") ? "Alle apps" : `${appsCond.length} app(s)`);
+                row("Apps", appsCond.includes("All") ? "All apps" : `${appsCond.length} app(s)`);
             }
             const platforms = cond.platforms?.includePlatforms || [];
             if (platforms.length) row("Platforms", escHtml(platforms.join(", ")));
 
             const grant = d.grantControls;
             if (grant?.builtInControls?.length) {
-                row("Vereiste controles", escHtml(grant.builtInControls.join(", ")));
+                row("Required controls", escHtml(grant.builtInControls.join(", ")));
             }
             if (grant?.operator) {
                 row("Operator", escHtml(grant.operator));
@@ -463,7 +463,7 @@ function buildDetailRows(type, d) {
         }
     }
 
-    return rows.length ? rows.join("") : `<p style="color:var(--text-muted);font-size:.82rem;">Geen details beschikbaar</p>`;
+    return rows.length ? rows.join("") : `<p style="color:var(--text-muted);font-size:.82rem;">No details available</p>`;
 }
 
 // ── UI helpers ────────────────────────────────────────────────────────────

@@ -22,6 +22,7 @@ app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", os.urandom(32))
 
 GRAPH_BASE = "https://graph.microsoft.com/v1.0"
+APP_VERSION = "0.0.3"
 
 CLIENT_ID     = os.getenv("CLIENT_ID", "")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET", "")
@@ -124,7 +125,7 @@ def login():
     if session.get("user"):
         return redirect(url_for("index"))
     error = request.args.get("error")
-    return render_template("login.html", error=error)
+    return render_template("login.html", error=error, version=APP_VERSION)
 
 
 @app.route("/auth/signin")
@@ -143,7 +144,7 @@ def auth_signin():
 @app.route(REDIRECT_PATH)
 def auth_callback():
     if request.args.get("state") != session.get("state"):
-        return redirect(url_for("login", error="State mismatch – probeer opnieuw."))
+        return redirect(url_for("login", error="State mismatch. Please try again."))
 
     if "error" in request.args:
         desc = request.args.get("error_description", request.args.get("error"))
@@ -151,7 +152,7 @@ def auth_callback():
 
     code = request.args.get("code")
     if not code:
-        return redirect(url_for("login", error="Geen autorisatiecode ontvangen."))
+        return redirect(url_for("login", error="No authorization code was received."))
 
     redirect_uri = url_for("auth_callback", _external=True)
     cache = _load_cache()
@@ -166,7 +167,7 @@ def auth_callback():
 
     claims = result.get("id_token_claims", {})
     session["user"] = {
-        "name": claims.get("name", "Onbekend"),
+        "name": claims.get("name", "Unknown"),
         "upn":  claims.get("preferred_username", ""),
         "tid":  claims.get("tid", ""),
         "oid":  claims.get("oid", ""),
@@ -189,7 +190,20 @@ def auth_signout():
 @app.route("/")
 @login_required
 def index():
-    return render_template("index.html", user=session["user"])
+    return render_template("index.html", user=session["user"], version=APP_VERSION)
+
+
+@app.route("/api/health")
+def health():
+    config_ok = bool(CLIENT_ID and CLIENT_SECRET and app.secret_key)
+    return jsonify(
+        {
+            "status": "ok" if config_ok else "warning",
+            "version": APP_VERSION,
+            "signed_in": bool(session.get("user")),
+            "message": "Configuration loaded" if config_ok else "Missing application configuration",
+        }
+    )
 
 
 # ── API: search ───────────────────────────────────────────────────────────────
@@ -204,7 +218,7 @@ def search():
 
     token = _get_token_from_cache()
     if not token:
-        return jsonify({"error": "Sessie verlopen"}), 401
+        return jsonify({"error": "Session expired"}), 401
 
     if search_type == "user":
         endpoint = (
@@ -258,7 +272,7 @@ def search():
 def user_map(user_id):
     token = _get_token_from_cache()
     if not token:
-        return jsonify({"error": "Sessie verlopen"}), 401
+        return jsonify({"error": "Session expired"}), 401
 
     nodes, edges, node_ids = [], [], set()
 
@@ -276,7 +290,7 @@ def user_map(user_id):
         token,
     )
     if not user or "error" in user:
-        return jsonify({"error": "Gebruiker niet gevonden"}), 404
+        return jsonify({"error": "User not found"}), 404
 
     add_node({"id": user["id"], "label": user.get("displayName", "?"), "type": "user", "data": clean(user)})
 
@@ -300,8 +314,8 @@ def user_map(user_id):
         odata_type = m.get("@odata.type", "")
         if "#microsoft.graph.group" in odata_type or (not odata_type and "groupTypes" in m):
             group_ids.append(m["id"])
-            add_node({"id": m["id"], "label": m.get("displayName", "Groep"), "type": "group", "data": clean(m)})
-            edges.append({"source": user["id"], "target": m["id"], "label": "lid van"})
+            add_node({"id": m["id"], "label": m.get("displayName", "Group"), "type": "group", "data": clean(m)})
+            edges.append({"source": user["id"], "target": m["id"], "label": "member of"})
 
     seen_apps = set()
     for gid in group_ids[:25]:
@@ -318,7 +332,7 @@ def user_map(user_id):
                 if sp and "error" not in sp:
                     add_node({"id": sp["id"], "label": sp.get("displayName", "App"), "type": "app", "data": clean(sp)})
             if sp_id in node_ids and not any(e["source"] == gid and e["target"] == sp_id for e in edges):
-                edges.append({"source": gid, "target": sp_id, "label": "toegang tot"})
+                edges.append({"source": gid, "target": sp_id, "label": "access to"})
 
     for policy in graph_get_all(
         "/identity/conditionalAccessPolicies?$select=id,displayName,state,conditions,grantControls",
@@ -334,7 +348,7 @@ def user_map(user_id):
         excluded  = user["id"] in exc_users or any(g in exc_groups for g in group_ids)
         if included and not excluded:
             add_node({"id": policy["id"], "label": policy.get("displayName", "CA Policy"), "type": "ca_policy", "data": clean(policy)})
-            edges.append({"source": user["id"], "target": policy["id"], "label": "beinvloed door"})
+            edges.append({"source": user["id"], "target": policy["id"], "label": "affected by"})
 
     return jsonify({"nodes": nodes, "edges": edges})
 
@@ -346,7 +360,7 @@ def user_map(user_id):
 def group_map(group_id):
     token = _get_token_from_cache()
     if not token:
-        return jsonify({"error": "Sessie verlopen"}), 401
+        return jsonify({"error": "Session expired"}), 401
 
     nodes, edges, node_ids = [], [], set()
 
@@ -363,7 +377,7 @@ def group_map(group_id):
         token,
     )
     if not group or "error" in group:
-        return jsonify({"error": "Groep niet gevonden"}), 404
+        return jsonify({"error": "Group not found"}), 404
 
     add_node({"id": group["id"], "label": group.get("displayName", "?"), "type": "group", "data": clean(group)})
 
@@ -373,7 +387,7 @@ def group_map(group_id):
     ):
         if "#microsoft.graph.user" in m.get("@odata.type", "") or "userPrincipalName" in m:
             add_node({"id": m["id"], "label": m.get("displayName", "?"), "type": "user", "data": clean(m)})
-            edges.append({"source": m["id"], "target": group["id"], "label": "lid van"})
+            edges.append({"source": m["id"], "target": group["id"], "label": "member of"})
 
     for assignment in graph_get_all(f"/groups/{group_id}/appRoleAssignments", token, max_items=50):
         sp_id = assignment.get("resourceId")
@@ -385,7 +399,7 @@ def group_map(group_id):
         )
         if sp and "error" not in sp:
             add_node({"id": sp["id"], "label": sp.get("displayName", "App"), "type": "app", "data": clean(sp)})
-            edges.append({"source": group["id"], "target": sp["id"], "label": "toegang tot"})
+            edges.append({"source": group["id"], "target": sp["id"], "label": "access to"})
 
     for policy in graph_get_all(
         "/identity/conditionalAccessPolicies?$select=id,displayName,state,conditions,grantControls",
@@ -397,7 +411,7 @@ def group_map(group_id):
         exc_groups = u_cond.get("excludeGroups", [])
         if group_id in inc_groups and group_id not in exc_groups:
             add_node({"id": policy["id"], "label": policy.get("displayName", "CA Policy"), "type": "ca_policy", "data": clean(policy)})
-            edges.append({"source": group["id"], "target": policy["id"], "label": "beinvloed door"})
+            edges.append({"source": group["id"], "target": policy["id"], "label": "affected by"})
 
     return jsonify({"nodes": nodes, "edges": edges})
 
@@ -409,7 +423,7 @@ def group_map(group_id):
 def get_details(object_type, object_id):
     token = _get_token_from_cache()
     if not token:
-        return jsonify({"error": "Sessie verlopen"}), 401
+        return jsonify({"error": "Session expired"}), 401
 
     endpoints = {
         "user":      f"/users/{object_id}",
@@ -420,11 +434,11 @@ def get_details(object_type, object_id):
     }
     ep = endpoints.get(object_type)
     if not ep:
-        return jsonify({"error": "Ongeldig object type"}), 400
+        return jsonify({"error": "Invalid object type"}), 400
 
     result = graph_get(ep, token)
     if not result:
-        return jsonify({"error": "Object niet gevonden"}), 404
+        return jsonify({"error": "Object not found"}), 404
     if "error" in result:
         return jsonify(result), 502
     return jsonify(result)

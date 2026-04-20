@@ -89,6 +89,15 @@ body {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+#app-version {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    background: rgba(59,130,246,.12);
+    border: 1px solid rgba(59,130,246,.24);
+    border-radius: 999px;
+    padding: 2px 7px;
+    line-height: 1.2;
+}
 #signout-btn {
     color: var(--text-muted);
     text-decoration: none;

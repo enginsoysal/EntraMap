@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="nl">
+<html lang="en">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -25,7 +25,8 @@
             <span class="header-title">EntraMap</span>
             <div id="user-menu" class="ms-auto d-flex align-items-center gap-2">
                 <span id="user-name" title="{{ user.upn }}">{{ user.name }}</span>
-                <a href="/auth/signout" id="signout-btn" title="Uitloggen">
+                <span id="app-version">v{{ version }}</span>
+                <a href="/auth/signout" id="signout-btn" title="Sign out">
                     <i class="fas fa-sign-out-alt"></i>
                 </a>
             </div>
@@ -35,10 +36,10 @@
         <div id="search-section">
             <div class="search-tabs">
                 <button class="search-tab active" data-type="user">
-                    <i class="fas fa-user"></i> Gebruiker
+                    <i class="fas fa-user"></i> User
                 </button>
                 <button class="search-tab" data-type="group">
-                    <i class="fas fa-users"></i> Groep
+                    <i class="fas fa-users"></i> Group
                 </button>
             </div>
             <div class="search-input-wrap">
@@ -47,7 +48,7 @@
                     id="search-input"
                     type="text"
                     class="form-control search-field"
-                    placeholder="Naam of UPN..."
+                    placeholder="Name or UPN..."
                     autocomplete="off"
                     spellcheck="false"
                 />
@@ -70,7 +71,7 @@
             <div id="detail-header">
                 <div id="detail-badge-wrap"></div>
                 <div id="detail-name"></div>
-                <button id="detail-close" title="Sluiten">
+                <button id="detail-close" title="Close">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
@@ -80,7 +81,7 @@
         <!-- Tip when nothing selected -->
         <div id="left-tip">
             <i class="fas fa-mouse-pointer"></i>
-            Klik op een object om details te zien
+            Click an object to see its details
         </div>
 
     </div>
@@ -91,17 +92,17 @@
         <!-- Toolbar -->
         <div id="graph-toolbar">
             <div class="legend">
-                <span class="leg user"><span class="leg-dot"></span>Gebruiker</span>
+                <span class="leg user"><span class="leg-dot"></span>User</span>
                 <span class="leg device"><span class="leg-dot"></span>Device</span>
-                <span class="leg group"><span class="leg-dot"></span>Groep</span>
+                <span class="leg group"><span class="leg-dot"></span>Group</span>
                 <span class="leg app"><span class="leg-dot"></span>App</span>
                 <span class="leg ca_policy"><span class="leg-dot"></span>CA Policy</span>
             </div>
             <div class="toolbar-actions">
-                <button id="btn-fit" class="tb-btn" title="Alles tonen">
+                <button id="btn-fit" class="tb-btn" title="Fit graph">
                     <i class="fas fa-expand-arrows-alt"></i>
                 </button>
-                <button id="btn-reset-layout" class="tb-btn" title="Layout herberekenen">
+                <button id="btn-reset-layout" class="tb-btn" title="Recalculate layout">
                     <i class="fas fa-redo"></i>
                 </button>
             </div>
@@ -114,15 +115,15 @@
         <div id="graph-loading" class="d-none">
             <div class="loading-inner">
                 <div class="spinner-ring"></div>
-                <p>Entra data ophalen&hellip;</p>
+                <p>Loading Entra data&hellip;</p>
             </div>
         </div>
 
         <!-- Empty state -->
         <div id="empty-state">
             <i class="fas fa-project-diagram empty-icon"></i>
-            <h5>Zoek een gebruiker of groep</h5>
-            <p>Gebruik het paneel links om te beginnen.</p>
+            <h5>Search for a user or group</h5>
+            <p>Use the left panel to get started.</p>
         </div>
 
     </div><!-- /right-panel -->
