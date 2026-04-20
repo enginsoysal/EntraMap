@@ -736,6 +736,8 @@ body {
     backdrop-filter: blur(10px);
 }
 .tb-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+.tb-btn-refresh { color: #34d399; border-color: rgba(52,211,153,.3); }
+.tb-btn-refresh:hover { background: rgba(52,211,153,.12); color: #6ee7b7; border-color: rgba(52,211,153,.6); }
 .tb-btn:disabled,
 .search-tab:disabled,
 .insight-btn:disabled,

@@ -45,6 +45,8 @@ let activeNodeId = null;
 let lastGraphData = null;
 let lastTapNodeId = null;
 let lastTapAt = 0;
+let lastLoadedType = null;
+let lastLoadedId   = null;
 
 // ── Cytoscape initialisation ──────────────────────────────────────────────
 
@@ -241,6 +243,11 @@ async function loadMap(objectType, objectId) {
         showToast("Sign in required", "error");
         return;
     }
+
+    lastLoadedType = objectType;
+    lastLoadedId   = objectId;
+    const refreshBtn = document.getElementById("btn-refresh");
+    if (refreshBtn) refreshBtn.classList.remove("d-none");
 
     showGraphLoading(true);
     clearGraph();
@@ -997,6 +1004,12 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("btn-fit").addEventListener("click", () => cy.fit(undefined, 40));
     document.getElementById("btn-reset-layout").addEventListener("click", () => runLayout(true));
     document.getElementById("btn-export-json").addEventListener("click", exportCurrentGraph);
+    document.getElementById("btn-refresh").addEventListener("click", () => {
+        if (lastLoadedType && lastLoadedId) {
+            showToast("Reloading from Microsoft Graph…", "info");
+            loadMap(lastLoadedType, lastLoadedId);
+        }
+    });
 
     // Detail close
     document.getElementById("detail-close").addEventListener("click", hideDetailPanel);
