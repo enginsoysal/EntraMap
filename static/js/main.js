@@ -55,6 +55,11 @@ let lastTapNodeId = null;
 let lastTapAt = 0;
 let lastLoadedType = null;
 let lastLoadedId   = null;
+let deepRefreshBusy = false;
+
+function waitMs(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 // ── Cytoscape initialisation ──────────────────────────────────────────────
 
@@ -255,7 +260,9 @@ async function loadMap(objectType, objectId) {
     lastLoadedType = objectType;
     lastLoadedId   = objectId;
     const refreshBtn = document.getElementById("btn-refresh");
+    const deepRefreshBtn = document.getElementById("btn-deep-refresh");
     if (refreshBtn) refreshBtn.classList.remove("d-none");
+    if (deepRefreshBtn) deepRefreshBtn.classList.remove("d-none");
 
     showGraphLoading(true);
     clearGraph();
@@ -965,7 +972,7 @@ function enableSignedOutMode() {
         input.placeholder = "Sign in to search...";
     }
 
-    document.querySelectorAll(".search-tab, #btn-fit, #btn-reset-layout, #btn-refresh, #btn-export-json, #insight-unmanaged, #insight-noncompliant, #insight-reset")
+    document.querySelectorAll(".search-tab, #btn-fit, #btn-reset-layout, #btn-refresh, #btn-deep-refresh, #btn-export-json, #insight-unmanaged, #insight-noncompliant, #insight-reset")
         .forEach(el => { el.disabled = true; });
 
     const emptyState = document.getElementById("empty-state");
@@ -1022,6 +1029,29 @@ document.addEventListener("DOMContentLoaded", () => {
         if (lastLoadedType && lastLoadedId) {
             showToast("Reloading from Microsoft Graph…", "info");
             loadMap(lastLoadedType, lastLoadedId);
+        }
+    });
+    document.getElementById("btn-deep-refresh").addEventListener("click", async () => {
+        if (!lastLoadedType || !lastLoadedId || deepRefreshBusy) return;
+
+        deepRefreshBusy = true;
+        const refreshBtn = document.getElementById("btn-refresh");
+        const deepRefreshBtn = document.getElementById("btn-deep-refresh");
+        if (refreshBtn) refreshBtn.disabled = true;
+        if (deepRefreshBtn) deepRefreshBtn.disabled = true;
+
+        try {
+            showToast("Deep refresh gestart (3 rondes)", "info");
+            for (let i = 1; i <= 3; i += 1) {
+                showToast(`Deep refresh ${i}/3`, "info");
+                await loadMap(lastLoadedType, lastLoadedId);
+                if (i < 3) await waitMs(1800);
+            }
+            showToast("Deep refresh voltooid", "info");
+        } finally {
+            deepRefreshBusy = false;
+            if (refreshBtn) refreshBtn.disabled = false;
+            if (deepRefreshBtn) deepRefreshBtn.disabled = false;
         }
     });
 
