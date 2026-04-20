@@ -1,5 +1,11 @@
 # Change Log
 
+## 0.3.9 - 2026-04-20
+
+- Bumped application version to 0.3.9
+- Fixed Intune app search failure by removing invalid metadata field from Graph $select query
+- Preserved Intune-only App tab behavior while tolerating missing Graph metadata annotations
+
 ## 0.3.8 - 2026-04-20
 
 - Bumped application version to 0.3.8

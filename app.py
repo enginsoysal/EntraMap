@@ -36,7 +36,7 @@ app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 Session(app)
 
 GRAPH_BASE = "https://graph.microsoft.com/v1.0"
-APP_VERSION = "0.3.8"
+APP_VERSION = "0.3.9"
 
 CLIENT_ID     = os.getenv("CLIENT_ID", "")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET", "")
@@ -345,7 +345,7 @@ def search():
         # Strict Intune-only app search (Company Portal catalog), no Entra fallback.
         first_page = graph_get(
             "/deviceAppManagement/mobileApps"
-            "?$select=id,displayName,publisher,description,isAssigned,@odata.type,lastModifiedDateTime"
+            "?$select=id,displayName,publisher,description,isAssigned,lastModifiedDateTime"
             "&$top=100",
             token,
         )
@@ -359,7 +359,7 @@ def search():
 
         all_apps = graph_get_all(
             "/deviceAppManagement/mobileApps"
-            "?$select=id,displayName,publisher,description,isAssigned,@odata.type,lastModifiedDateTime"
+            "?$select=id,displayName,publisher,description,isAssigned,lastModifiedDateTime"
             "&$top=100",
             token,
             max_items=1200,
@@ -367,6 +367,10 @@ def search():
 
         def is_supported_intune_app(a):
             odata_type = (a.get("@odata.type") or "").lower()
+            if not odata_type:
+                # If metadata annotation is omitted by Graph, keep item visible
+                # rather than returning a false-empty result set.
+                return True
             return any(
                 t in odata_type
                 for t in [
@@ -616,7 +620,7 @@ def app_map(app_id):
 
     # Intune app (Company Portal catalog item)
     app_item = graph_get(
-        f"/deviceAppManagement/mobileApps/{app_id}?$select=id,displayName,publisher,description,isAssigned,createdDateTime,lastModifiedDateTime,@odata.type",
+        f"/deviceAppManagement/mobileApps/{app_id}?$select=id,displayName,publisher,description,isAssigned,createdDateTime,lastModifiedDateTime",
         token,
     )
     if not app_item or "error" in app_item:
