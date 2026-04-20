@@ -59,6 +59,16 @@ function openAuthPopup(url, windowName, width = 560, height = 720) {
     return popup;
 }
 
+window.openEntraMapAuthPopup = function (url) {
+    openAuthPopup(url || "/auth/signin?popup=1", "entramapSignIn");
+    return false;
+};
+
+window.openEntraMapConsentPopup = function (url) {
+    openAuthPopup(url, "entramapConsent");
+    return false;
+};
+
 // ── OS Icon Mapping ────────────────────────────────────────────────────────
 
 const OS_ICONS = {
@@ -680,7 +690,7 @@ async function performSearch(query) {
         const data = await resp.json();
         if (resp.status === 428 && data?.reauth_url) {
             showToast("Intune permissions vernieuwen...", "info");
-            openAuthPopup(data.reauth_url, "entramapConsent");
+            window.openEntraMapConsentPopup(data.reauth_url);
             renderSearchError("Bevestig permissies in het popupvenster en probeer daarna opnieuw.");
             return;
         }
@@ -1072,6 +1082,9 @@ function setupAuthOverlayTabs() {
 
 function setupMicrosoftSignInPopup() {
     document.querySelectorAll(".js-ms-signin").forEach(link => {
+        if (link.dataset.popupInline === "1") {
+            return;
+        }
         link.addEventListener("click", (evt) => {
             evt.preventDefault();
 

@@ -283,7 +283,7 @@
         {% endif %}
 
         <!-- Sign in button -->
-        <a href="/auth/signin?popup=1" class="btn-microsoft js-ms-signin">
+        <a href="/auth/signin?popup=1" class="btn-microsoft js-ms-signin" data-popup-inline="1" onclick="return window.openEntraMapAuthPopup(this.href)">
             <!-- Official Microsoft SVG logo -->
             <svg class="ms-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 21 21">
                 <rect x="1"  y="1"  width="9" height="9" fill="#f25022"/>
