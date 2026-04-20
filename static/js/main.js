@@ -973,6 +973,17 @@ document.addEventListener("DOMContentLoaded", () => {
         enableSignedOutMode();
     }
 
+    // Disconnect tenant button
+    const disconnectBtn = document.getElementById("disconnect-btn");
+    if (disconnectBtn) {
+        disconnectBtn.addEventListener("click", () => {
+            if (!confirm("Disconnect tenant?\n\nThis will wipe all session data and sign you out immediately.")) return;
+            try { localStorage.clear(); } catch (_) {}
+            try { sessionStorage.clear(); } catch (_) {}
+            window.location.href = "/auth/disconnect";
+        });
+    }
+
     // Toolbar
     document.getElementById("btn-fit").addEventListener("click", () => cy.fit(undefined, 40));
     document.getElementById("btn-reset-layout").addEventListener("click", () => runLayout(true));

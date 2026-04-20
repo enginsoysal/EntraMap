@@ -21,9 +21,9 @@
                 <span id="user-name" title="{{ user.upn if user else '' }}">{{ user.name if user else 'Guest' }}</span>
                 <span id="app-version">v{{ version }}</span>
                 {% if signed_in %}
-                <a href="/auth/signout" id="signout-btn" title="Sign out">
-                    <i class="fas fa-sign-out-alt"></i>
-                </a>
+                <button id="disconnect-btn" type="button" title="Disconnect tenant — wipes all session data and signs out">
+                    <i class="fas fa-plug-circle-xmark"></i> Disconnect tenant
+                </button>
                 {% else %}
                 <button id="open-auth-modal" class="auth-open-btn" type="button" title="Sign in">
                     <i class="fas fa-right-to-bracket"></i>

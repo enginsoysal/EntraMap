@@ -221,6 +221,13 @@ def auth_signout():
     return redirect(url_for("index"))
 
 
+@app.route("/auth/disconnect")
+def auth_disconnect():
+    """Hard disconnect: wipe token cache, session, all tenant traces, then return to sign-in."""
+    session.clear()
+    return redirect(url_for("index"))
+
+
 # ── Main page ─────────────────────────────────────────────────────────────────
 
 @app.route("/")

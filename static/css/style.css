@@ -131,6 +131,26 @@ body {
 }
 #signout-btn:hover { color: var(--text-primary); background: var(--bg-hover); }
 
+#disconnect-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: none;
+    border: 1px solid rgba(239,68,68,.38);
+    color: #fca5a5;
+    font-size: 0.72rem;
+    padding: 4px 9px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    white-space: nowrap;
+}
+#disconnect-btn:hover {
+    background: rgba(239,68,68,.12);
+    border-color: rgba(239,68,68,.7);
+    color: #f87171;
+}
+
 .auth-open-btn {
     color: var(--text-muted);
     background: none;
