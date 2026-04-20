@@ -4,115 +4,75 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>EntraMap</title>
-    <link
-        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-        rel="stylesheet"
-    />
-    <link
-        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
-        rel="stylesheet"
-    />
+    <link rel="icon" type="image/svg+xml" href="/static/brand/favicon.svg" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" rel="stylesheet" />
     <link href="/static/css/style.css" rel="stylesheet" />
 </head>
 <body>
 <div id="app">
 
-    <!-- ===== LEFT PANEL ===== -->
     <div id="left-panel">
 
         <div id="header">
-            <i class="fas fa-project-diagram header-icon"></i>
+            <img src="/static/brand/logo.svg" class="header-logo" alt="EntraMap logo" />
             <span class="header-title">EntraMap</span>
             <div id="user-menu" class="ms-auto d-flex align-items-center gap-2">
-                <span id="user-name" title="{{ user.upn }}">{{ user.name }}</span>
+                <span id="user-name" title="{{ user.upn if user else '' }}">{{ user.name if user else 'Guest' }}</span>
                 <span id="app-version">v{{ version }}</span>
+                {% if signed_in %}
                 <a href="/auth/signout" id="signout-btn" title="Sign out">
                     <i class="fas fa-sign-out-alt"></i>
                 </a>
+                {% else %}
+                <button id="open-auth-modal" class="auth-open-btn" type="button" title="Sign in">
+                    <i class="fas fa-right-to-bracket"></i>
+                </button>
+                {% endif %}
             </div>
         </div>
 
-        <!-- Search section -->
         <div id="search-section">
             <div class="search-tabs">
-                <button class="search-tab active" data-type="user">
-                    <i class="fas fa-user"></i> User
-                </button>
-                <button class="search-tab" data-type="group">
-                    <i class="fas fa-users"></i> Group
-                </button>
+                <button class="search-tab active" data-type="user"><i class="fas fa-user"></i> User</button>
+                <button class="search-tab" data-type="group"><i class="fas fa-users"></i> Group</button>
             </div>
             <div class="search-input-wrap">
                 <i class="fas fa-search search-prefix-icon"></i>
-                <input
-                    id="search-input"
-                    type="text"
-                    class="form-control search-field"
-                    placeholder="Name or UPN..."
-                    autocomplete="off"
-                    spellcheck="false"
-                />
-                <span id="search-spinner" class="search-spinner d-none">
-                    <i class="fas fa-circle-notch fa-spin"></i>
-                </span>
+                <input id="search-input" type="text" class="form-control search-field" placeholder="Name or UPN..." autocomplete="off" spellcheck="false" />
+                <span id="search-spinner" class="search-spinner d-none"><i class="fas fa-circle-notch fa-spin"></i></span>
             </div>
         </div>
 
-        <!-- Search results dropdown -->
-        <div id="search-results-wrap">
-            <div id="search-results"></div>
-        </div>
+        <div id="search-results-wrap"><div id="search-results"></div></div>
 
-        <!-- Insights panel -->
         <div id="insights-panel" class="d-none">
-            <div class="insights-head">
-                <i class="fas fa-chart-line"></i>
-                <span>Operational insights</span>
-            </div>
-
+            <div class="insights-head"><i class="fas fa-chart-line"></i><span>Operational insights</span></div>
             <div id="insight-kpis" class="insight-kpis"></div>
             <div id="insight-os" class="insight-os"></div>
-
             <div class="insight-actions">
-                <button id="insight-unmanaged" class="insight-btn" type="button">
-                    <i class="fas fa-triangle-exclamation"></i> Unmanaged devices
-                </button>
-                <button id="insight-noncompliant" class="insight-btn" type="button">
-                    <i class="fas fa-shield-halved"></i> Non-compliant devices
-                </button>
-                <button id="insight-reset" class="insight-btn reset" type="button">
-                    <i class="fas fa-rotate-left"></i> Reset focus
-                </button>
+                <button id="insight-unmanaged" class="insight-btn" type="button"><i class="fas fa-triangle-exclamation"></i> Unmanaged devices</button>
+                <button id="insight-noncompliant" class="insight-btn" type="button"><i class="fas fa-shield-halved"></i> Non-compliant devices</button>
+                <button id="insight-reset" class="insight-btn reset" type="button"><i class="fas fa-rotate-left"></i> Reset focus</button>
             </div>
         </div>
 
-        <!-- Divider shown only when detail is open -->
         <div id="detail-divider" class="d-none"></div>
 
-        <!-- Detail panel -->
         <div id="detail-panel" class="d-none">
             <div id="detail-header">
                 <div id="detail-badge-wrap"></div>
                 <div id="detail-name"></div>
-                <button id="detail-close" title="Close">
-                    <i class="fas fa-times"></i>
-                </button>
+                <button id="detail-close" title="Close"><i class="fas fa-times"></i></button>
             </div>
             <div id="detail-body"></div>
         </div>
 
-        <!-- Tip when nothing selected -->
-        <div id="left-tip">
-            <i class="fas fa-mouse-pointer"></i>
-            Click for details. Double-click a User/Group to zoom and load its structure.
-        </div>
+        <div id="left-tip"><i class="fas fa-mouse-pointer"></i> Click for details. Double-click a User/Group to zoom and load its structure.</div>
 
     </div>
 
-    <!-- ===== RIGHT PANEL ===== -->
     <div id="right-panel">
-
-        <!-- Toolbar -->
         <div id="graph-toolbar">
             <div class="legend">
                 <span class="leg user"><span class="leg-dot"></span>User</span>
@@ -121,61 +81,108 @@
                 <span class="leg app"><span class="leg-dot"></span>App</span>
                 <span class="leg ca_policy"><span class="leg-dot"></span>CA Policy</span>
             </div>
-            <div id="drilldown-hint">
-                <i class="fas fa-computer-mouse"></i>
-                Double-click User/Group to drill down
-            </div>
+            <div id="drilldown-hint"><i class="fas fa-computer-mouse"></i> Double-click User/Group to drill down</div>
             <div class="toolbar-actions">
-                <button id="btn-fit" class="tb-btn" title="Fit graph">
-                    <i class="fas fa-expand-arrows-alt"></i>
-                </button>
-                <button id="btn-reset-layout" class="tb-btn" title="Recalculate layout">
-                    <i class="fas fa-redo"></i>
-                </button>
-                <button id="btn-export-json" class="tb-btn" title="Export current graph as JSON">
-                    <i class="fas fa-file-export"></i>
-                </button>
+                <button id="btn-fit" class="tb-btn" title="Fit graph"><i class="fas fa-expand-arrows-alt"></i></button>
+                <button id="btn-reset-layout" class="tb-btn" title="Recalculate layout"><i class="fas fa-redo"></i></button>
+                <button id="btn-export-json" class="tb-btn" title="Export current graph as JSON"><i class="fas fa-file-export"></i></button>
             </div>
         </div>
 
-        <!-- Cytoscape container -->
         <div id="graph"></div>
 
-        <!-- Loading overlay -->
         <div id="graph-loading" class="d-none">
-            <div class="loading-inner">
-                <div class="spinner-ring"></div>
-                <p>Loading Entra data&hellip;</p>
-            </div>
+            <div class="loading-inner"><div class="spinner-ring"></div><p>Loading Entra data&hellip;</p></div>
         </div>
 
-        <!-- Empty state -->
         <div id="empty-state">
             <i class="fas fa-project-diagram empty-icon"></i>
             <h5>Search for a user or group</h5>
             <p>Use the left panel to get started.</p>
         </div>
+    </div>
 
-    </div><!-- /right-panel -->
-
-    <!-- ===== FOOTER ===== -->
     <div id="footer">
         <div id="footer-content">
-            <a href="https://github.com/enginsoysal/EntraMap" target="_blank" title="GitHub Repository">
-                <i class="fab fa-github"></i> GitHub
-            </a>
+            <a href="https://github.com/enginsoysal/EntraMap" target="_blank" title="GitHub Repository"><i class="fab fa-github"></i> GitHub</a>
             <span class="footer-divider">·</span>
-            <a href="https://linkedin.com/in/enginsoysal" target="_blank" title="LinkedIn Profile">
-                Made by <i class="fab fa-linkedin"></i> Engin Soysal
-            </a>
+            <a href="https://linkedin.com/in/enginsoysal" target="_blank" title="LinkedIn Profile">Made by <i class="fab fa-linkedin"></i> Engin Soysal</a>
         </div>
     </div>
 
-</div><!-- /app -->
+</div>
 
-<!-- Config error toast -->
+<div id="auth-overlay" class="{{ '' if not signed_in else 'd-none' }}">
+    <div class="auth-backdrop"></div>
+    <div class="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+        <div class="auth-brand">
+            <img src="/static/brand/logo.svg" alt="EntraMap" class="auth-brand-logo" />
+            <div>
+                <h2 id="auth-title">EntraMap</h2>
+                <p>Daily Entra identity and access operations, fully read-only.</p>
+            </div>
+        </div>
+
+        <div class="auth-tabbar">
+            <button class="auth-tab active" data-auth-tab="signin" type="button">Sign In</button>
+            <button class="auth-tab" data-auth-tab="features" type="button">Features</button>
+            <button class="auth-tab" data-auth-tab="howto" type="button">How To Use</button>
+        </div>
+
+        <div class="auth-pane" data-auth-pane="signin">
+            {% if login_error %}
+            <div class="auth-error"><i class="fas fa-circle-exclamation"></i> {{ login_error }}</div>
+            {% endif %}
+            <p class="auth-copy">Sign in once, then investigate users, devices, groups, apps, and CA policies from one workspace.</p>
+            <a href="/auth/signin" class="btn-auth-microsoft">
+                <svg class="ms-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 21 21">
+                    <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+                    <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+                    <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+                    <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+                </svg>
+                Sign in with Microsoft
+            </a>
+            <ul class="auth-bullets">
+                <li>Read-only Graph access only</li>
+                <li>No write operations in your tenant</li>
+                <li>Works for daily admin triage and audit prep</li>
+            </ul>
+        </div>
+
+        <div class="auth-pane d-none" data-auth-pane="features">
+            <div class="feature-grid">
+                <article><i class="fas fa-sitemap"></i><h3>Relationship Graph</h3><p>Visualize identity paths between users, devices, groups, apps, and CA policies.</p></article>
+                <article><i class="fas fa-image-portrait"></i><h3>Photo-Aware Nodes</h3><p>User and group profile photos render directly inside graph nodes for fast recognition.</p></article>
+                <article><i class="fas fa-bolt"></i><h3>Drill-Down</h3><p>Double-click a user or group to re-center and continue investigation from that object.</p></article>
+                <article><i class="fas fa-shield-heart"></i><h3>Operational Insights</h3><p>Instant counts for unmanaged and non-compliant devices with one-click focus filters.</p></article>
+                <article><i class="fas fa-file-arrow-down"></i><h3>Export JSON</h3><p>Export current graph for handover notes, incident context, and read-only reporting.</p></article>
+                <article><i class="fas fa-up-right-from-square"></i><h3>Portal Deep Links</h3><p>Open selected objects directly in Entra admin portal and copy object IDs quickly.</p></article>
+            </div>
+        </div>
+
+        <div class="auth-pane d-none" data-auth-pane="howto">
+            <ol class="howto-list">
+                <li><strong>Search a user or group:</strong> Start with a name or UPN in the left search bar.</li>
+                <li><strong>Open graph context:</strong> Click a result to load relationships and operational metrics.</li>
+                <li><strong>Inspect details:</strong> Click a node once to open full details, photos, and direct portal actions.</li>
+                <li><strong>Drill into another root:</strong> Double-click any user/group node to pivot investigation instantly.</li>
+                <li><strong>Focus on risk:</strong> Use Unmanaged/Non-compliant filters to isolate potential issues.</li>
+                <li><strong>Share evidence:</strong> Export graph JSON and include it in tickets or governance notes.</li>
+            </ol>
+            <p class="howto-note">Tip: Use this every morning to review identity hygiene before incidents become outages.</p>
+        </div>
+    </div>
+</div>
+
 <div id="toast-container" aria-live="polite"></div>
 
+<script>
+window.APP_CONTEXT = {
+    signedIn: {{ 'true' if signed_in else 'false' }},
+    version: "{{ version }}"
+};
+</script>
 <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.29.2/dist/cytoscape.min.js"></script>
 <script src="/static/js/main.js"></script>
 </body>

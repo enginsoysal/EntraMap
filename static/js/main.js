@@ -4,6 +4,8 @@
 
 "use strict";
 
+const APP_CONTEXT = window.APP_CONTEXT || { signedIn: false, version: "0.3.0" };
+
 // ── Constants ──────────────────────────────────────────────────────────────
 
 const TYPE_META = {
@@ -235,6 +237,11 @@ function initCytoscape() {
 // ── Graph data loading ─────────────────────────────────────────────────────
 
 async function loadMap(objectType, objectId) {
+    if (!APP_CONTEXT.signedIn) {
+        showToast("Sign in required", "error");
+        return;
+    }
+
     showGraphLoading(true);
     clearGraph();
     hideEmptyState();
@@ -514,6 +521,10 @@ function exportCurrentGraph() {
 
 async function performSearch(query) {
     const resultsDiv = document.getElementById("search-results");
+    if (!APP_CONTEXT.signedIn) {
+        renderSearchError("Sign in required");
+        return;
+    }
     if (!query || query.length < 2) { resultsDiv.innerHTML = ""; return; }
 
     setSearchSpinner(true);
@@ -882,10 +893,54 @@ function escHtml(str) {
         .replace(/"/g, "&quot;");
 }
 
+function setupAuthOverlayTabs() {
+    const tabs = document.querySelectorAll(".auth-tab");
+    const panes = document.querySelectorAll(".auth-pane");
+    if (!tabs.length || !panes.length) return;
+
+    tabs.forEach(tab => {
+        tab.addEventListener("click", () => {
+            const key = tab.getAttribute("data-auth-tab");
+            tabs.forEach(t => t.classList.toggle("active", t === tab));
+            panes.forEach(p => p.classList.toggle("d-none", p.getAttribute("data-auth-pane") !== key));
+        });
+    });
+}
+
+function enableSignedOutMode() {
+    const input = document.getElementById("search-input");
+    if (input) {
+        input.disabled = true;
+        input.placeholder = "Sign in to search...";
+    }
+
+    document.querySelectorAll(".search-tab, #btn-fit, #btn-reset-layout, #btn-export-json, #insight-unmanaged, #insight-noncompliant, #insight-reset")
+        .forEach(el => { el.disabled = true; });
+
+    const emptyState = document.getElementById("empty-state");
+    if (emptyState) {
+        const title = emptyState.querySelector("h5");
+        const text = emptyState.querySelector("p");
+        if (title) title.textContent = "Sign in to start";
+        if (text) text.textContent = "Use the Sign In popup to unlock graph, search, and insights.";
+    }
+
+    const openBtn = document.getElementById("open-auth-modal");
+    const overlay = document.getElementById("auth-overlay");
+    if (openBtn && overlay) {
+        openBtn.addEventListener("click", () => overlay.classList.remove("d-none"));
+    }
+}
+
 // ── Boot ──────────────────────────────────────────────────────────────────
 
 document.addEventListener("DOMContentLoaded", () => {
     initCytoscape();
+    setupAuthOverlayTabs();
+
+    if (!APP_CONTEXT.signedIn) {
+        enableSignedOutMode();
+    }
 
     // Toolbar
     document.getElementById("btn-fit").addEventListener("click", () => cy.fit(undefined, 40));

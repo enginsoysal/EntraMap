@@ -31,7 +31,7 @@ app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 Session(app)
 
 GRAPH_BASE = "https://graph.microsoft.com/v1.0"
-APP_VERSION = "0.2.0"
+APP_VERSION = "0.3.0"
 
 CLIENT_ID     = os.getenv("CLIENT_ID", "")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET", "")
@@ -94,11 +94,15 @@ def login_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         if not session.get("user"):
-            return redirect(url_for("login"))
+            if request.path.startswith("/api/"):
+                return jsonify({"error": "Session expired"}), 401
+            return redirect(url_for("index", login_error="Sign in required"))
         token = _get_token_from_cache()
         if not token:
             session.clear()
-            return redirect(url_for("login"))
+            if request.path.startswith("/api/"):
+                return jsonify({"error": "Session expired"}), 401
+            return redirect(url_for("index", login_error="Session expired. Please sign in again."))
         return f(*args, **kwargs)
     return decorated
 
@@ -137,10 +141,10 @@ def graph_get_all(endpoint, token, extra_headers=None, max_items=100):
 
 @app.route("/login")
 def login():
-    if session.get("user"):
-        return redirect(url_for("index"))
     error = request.args.get("error")
-    return render_template("login.html", error=error, version=APP_VERSION)
+    if error:
+        return redirect(url_for("index", login_error=error))
+    return redirect(url_for("index"))
 
 
 @app.route("/auth/signin")
@@ -160,15 +164,15 @@ def auth_signin():
 @app.route(REDIRECT_PATH)
 def auth_callback():
     if request.args.get("state") != session.get("state"):
-        return redirect(url_for("login", error="State mismatch. Please try again."))
+        return redirect(url_for("index", login_error="State mismatch. Please try again."))
 
     if "error" in request.args:
         desc = request.args.get("error_description", request.args.get("error"))
-        return redirect(url_for("login", error=desc))
+        return redirect(url_for("index", login_error=desc))
 
     code = request.args.get("code")
     if not code:
-        return redirect(url_for("login", error="No authorization code was received."))
+        return redirect(url_for("index", login_error="No authorization code was received."))
 
     redirect_uri = _redirect_uri()
     cache = _load_cache()
@@ -179,7 +183,7 @@ def auth_callback():
     _save_cache(cache)
 
     if "error" in result:
-        return redirect(url_for("login", error=result.get("error_description", result["error"])))
+        return redirect(url_for("index", login_error=result.get("error_description", result["error"])))
 
     claims = result.get("id_token_claims", {})
     session["user"] = {
@@ -196,7 +200,7 @@ def auth_signout():
     session.clear()
     logout_url = (
         "https://login.microsoftonline.com/common/oauth2/v2.0/logout"
-        f"?post_logout_redirect_uri={url_for('login', _external=True)}"
+        f"?post_logout_redirect_uri={url_for('index', _external=True)}"
     )
     return redirect(logout_url)
 
@@ -204,9 +208,15 @@ def auth_signout():
 # ── Main page ─────────────────────────────────────────────────────────────────
 
 @app.route("/")
-@login_required
 def index():
-    return render_template("index.html", user=session["user"], version=APP_VERSION)
+    user = session.get("user")
+    return render_template(
+        "index.html",
+        user=user,
+        signed_in=bool(user),
+        login_error=request.args.get("login_error", ""),
+        version=APP_VERSION,
+    )
 
 
 @app.route("/api/health")

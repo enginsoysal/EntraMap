@@ -1,5 +1,14 @@
 # Change Log
 
+## 0.3.0 - 2026-04-20
+
+- Bumped application version to 0.3.0
+- Introduced homepage popup login flow instead of a standalone login screen
+- Added frontend onboarding pages in the popup (Sign In, Features, How To Use)
+- Added custom logo and favicon assets under static/brand
+- Updated auth behavior so signed-out users still see the app shell while data actions remain sign-in gated
+- Continued read-only operational model (no write actions to tenant data)
+
 ## 0.2.0 - 2026-04-20
 
 - Bumped application version to 0.2.0

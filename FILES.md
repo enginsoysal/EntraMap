@@ -1,6 +1,6 @@
 # Files Reference
 
-Version 0.2.0
+Version 0.3.0
 
 This file describes the purpose of each file in the repository.
 
@@ -38,23 +38,21 @@ This file. It acts as a file inventory and quick project reference.
 ## Templates
 
 ### templates/index.html
-Main signed-in application page.
+Main application page for both signed-in and signed-out states.
 
 Responsibilities:
 - Renders the left search panel
 - Renders the operational insights section
 - Renders the graph container
-- Shows the signed-in user and version
+- Shows auth popup onboarding tabs (Sign In, Features, How To Use) when signed out
+- Shows current user state and version
 - Loads the CSS and JavaScript assets
 
 ### templates/login.html
-Microsoft sign-in landing page.
+Legacy sign-in template kept for compatibility.
 
 Responsibilities:
-- Presents the Sign in with Microsoft button
-- Explains tenant consent expectations
-- Displays login errors
-- Shows the current application version
+- Not used in the primary user flow (homepage popup login is the default)
 
 ## Static Assets
 
@@ -62,7 +60,7 @@ Responsibilities:
 Main stylesheet for the signed-in application UI.
 
 Responsibilities:
-- Defines layout, colors, panels, graph toolbar, insight panel, and detail panel styles
+- Defines layout, colors, panels, graph toolbar, insight panel, detail panel, and auth popup styles
 - Styles the signed-in header state
 - Styles the search and graph view
 
@@ -71,6 +69,7 @@ Frontend logic for the graph application.
 
 Responsibilities:
 - Initializes Cytoscape
+- Reads app auth context from frontend bootstrapped state
 - Executes search requests
 - Loads graph data from the backend APIs
 - Hydrates node photos for users and groups
@@ -79,7 +78,14 @@ Responsibilities:
 - Handles double-click drill-down behavior
 - Calculates and renders operational insights
 - Supports graph export and read-only helper actions
+- Manages popup auth tab behavior and signed-out frontend mode
 - Displays notifications and loading states
+
+### static/brand/logo.svg
+Primary EntraMap brand logo used in header and auth popup.
+
+### static/brand/favicon.svg
+Favicon used in the browser tab.
 
 ## Runtime-Only Files
 
@@ -102,3 +108,6 @@ CSS assets.
 
 ### static/js/
 JavaScript assets.
+
+### static/brand/
+Brand assets (logo and favicon).

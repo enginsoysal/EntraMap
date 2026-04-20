@@ -90,6 +90,12 @@ body {
 }
 
 .header-icon { color: var(--accent-blue); font-size: 1.1rem; }
+.header-logo {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    box-shadow: 0 6px 18px rgba(59,130,246,.28);
+}
 .header-title {
     font-size: 1.05rem;
     font-weight: 700;
@@ -124,6 +130,22 @@ body {
     transition: color 0.15s, background 0.15s;
 }
 #signout-btn:hover { color: var(--text-primary); background: var(--bg-hover); }
+
+.auth-open-btn {
+    color: var(--text-muted);
+    background: none;
+    border: 1px solid var(--border-light);
+    font-size: 0.8rem;
+    padding: 4px 7px;
+    border-radius: 6px;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.auth-open-btn:hover {
+    color: #93c5fd;
+    border-color: rgba(59,130,246,.55);
+    background: rgba(59,130,246,.12);
+}
 
 /* ---- Search section -------------------------------------- */
 #search-section {
@@ -594,6 +616,13 @@ body {
     backdrop-filter: blur(10px);
 }
 .tb-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+.tb-btn:disabled,
+.search-tab:disabled,
+.insight-btn:disabled,
+#search-input:disabled {
+    opacity: 0.52;
+    cursor: not-allowed;
+}
 
 /* ---- Loading overlay ------------------------------------- */
 #graph-loading {
@@ -714,8 +743,193 @@ body {
     font-size: 0.75rem;
 }
 
+/* ============================================================
+   AUTH OVERLAY (Popup Login + Frontend Pages)
+   ============================================================ */
+#auth-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.auth-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(5,8,18,.78);
+    backdrop-filter: blur(5px);
+}
+
+.auth-modal {
+    position: relative;
+    width: min(960px, 96vw);
+    max-height: 92vh;
+    overflow: auto;
+    border-radius: 18px;
+    border: 1px solid rgba(59,130,246,.24);
+    background:
+      radial-gradient(120% 130% at 100% 0%, rgba(124,58,237,.2), transparent 42%),
+      radial-gradient(140% 150% at 0% 100%, rgba(37,99,235,.18), transparent 46%),
+      #13162a;
+    box-shadow: 0 30px 90px rgba(0,0,0,.6);
+    padding: 22px;
+}
+
+.auth-brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+.auth-brand-logo {
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+}
+
+.auth-brand h2 {
+    margin: 0;
+    font-size: 1.35rem;
+    font-weight: 800;
+}
+
+.auth-brand p {
+    margin: 2px 0 0;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.auth-tabbar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.auth-tab {
+    border: 1px solid var(--border-light);
+    border-radius: 999px;
+    background: rgba(11,13,22,.6);
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    padding: 6px 14px;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.auth-tab.active,
+.auth-tab:hover {
+    color: #c7ddff;
+    border-color: rgba(59,130,246,.52);
+    background: rgba(59,130,246,.14);
+}
+
+.auth-error {
+    border: 1px solid rgba(239,68,68,.45);
+    background: rgba(239,68,68,.1);
+    color: #fda4af;
+    border-radius: 8px;
+    padding: 9px 10px;
+    font-size: 0.82rem;
+    margin-bottom: 10px;
+}
+
+.auth-copy {
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+}
+
+.btn-auth-microsoft {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 8px;
+    background: #fff;
+    color: #111827;
+    text-decoration: none;
+    font-weight: 700;
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.btn-auth-microsoft:hover {
+    color: #111827;
+    transform: translateY(-1px);
+    box-shadow: 0 10px 30px rgba(0,0,0,.25);
+}
+
+.ms-logo {
+    width: 19px;
+    height: 19px;
+}
+
+.auth-bullets {
+    margin: 12px 0 0;
+    padding-left: 18px;
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+}
+
+.auth-bullets li { margin-bottom: 5px; }
+
+.feature-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.feature-grid article {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: rgba(11,13,22,.52);
+    padding: 12px;
+}
+
+.feature-grid i {
+    font-size: 1rem;
+    color: #93c5fd;
+    margin-bottom: 6px;
+}
+
+.feature-grid h3 {
+    font-size: 0.88rem;
+    margin: 0 0 5px;
+}
+
+.feature-grid p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.77rem;
+    line-height: 1.4;
+}
+
+.howto-list {
+    margin: 0;
+    padding-left: 18px;
+    color: var(--text-secondary);
+    font-size: 0.86rem;
+}
+
+.howto-list li { margin-bottom: 7px; }
+
+.howto-note {
+    margin-top: 10px;
+    color: #93c5fd;
+    font-size: 0.8rem;
+}
+
 @media (max-width: 1180px) {
     #drilldown-hint {
         display: none;
+    }
+}
+
+@media (max-width: 900px) {
+    .feature-grid {
+        grid-template-columns: 1fr;
     }
 }
