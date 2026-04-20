@@ -4,7 +4,7 @@
 
 "use strict";
 
-const APP_CONTEXT = window.APP_CONTEXT || { signedIn: false, version: "0.3.3" };
+const APP_CONTEXT = window.APP_CONTEXT || { signedIn: false, version: "0.3.4" };
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -973,11 +973,20 @@ document.addEventListener("DOMContentLoaded", () => {
         enableSignedOutMode();
     }
 
-    // Disconnect tenant button
+    // Disconnect tenant lightbox
     const disconnectBtn = document.getElementById("disconnect-btn");
-    if (disconnectBtn) {
+    const lightbox      = document.getElementById("disconnect-lightbox");
+    const lbCancel      = document.getElementById("lb-cancel");
+    const lbConfirm     = document.getElementById("lb-confirm");
+
+    if (disconnectBtn && lightbox) {
         disconnectBtn.addEventListener("click", () => {
-            if (!confirm("Disconnect tenant?\n\nThis will wipe all session data and sign you out immediately.")) return;
+            lightbox.classList.remove("d-none");
+            lbConfirm.focus();
+        });
+        lbCancel.addEventListener("click", () => lightbox.classList.add("d-none"));
+        lightbox.addEventListener("click", (e) => { if (e.target === lightbox) lightbox.classList.add("d-none"); });
+        lbConfirm.addEventListener("click", () => {
             try { localStorage.clear(); } catch (_) {}
             try { sessionStorage.clear(); } catch (_) {}
             window.location.href = "/auth/disconnect";

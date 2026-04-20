@@ -1,5 +1,10 @@
 # Change Log
 
+## 0.3.4 - 2026-04-20
+
+- Bumped application version to 0.3.4
+- Replaced native browser confirm dialog with a custom styled lightbox for Disconnect tenant confirmation
+
 ## 0.3.3 - 2026-04-20
 
 - Bumped application version to 0.3.3

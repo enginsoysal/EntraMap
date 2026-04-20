@@ -136,19 +136,101 @@ body {
     align-items: center;
     gap: 5px;
     background: none;
-    border: 1px solid rgba(239,68,68,.38);
-    color: #fca5a5;
-    font-size: 0.72rem;
-    padding: 4px 9px;
-    border-radius: 6px;
+    border: none;
+    color: #f87171;
+    font-size: 0.78rem;
+    padding: 2px 4px;
+    border-radius: 4px;
     cursor: pointer;
-    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    transition: color 0.15s;
     white-space: nowrap;
 }
-#disconnect-btn:hover {
-    background: rgba(239,68,68,.12);
-    border-color: rgba(239,68,68,.7);
+#disconnect-btn:hover { color: #fca5a5; }
+
+/* ── Disconnect lightbox ─────────────────────────────────────── */
+.lb-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    background: rgba(5,8,18,.72);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.lb-card {
+    width: min(420px, 94vw);
+    background: linear-gradient(160deg, #161b36 0%, #0f1328 100%);
+    border: 1px solid rgba(239,68,68,.35);
+    border-radius: 18px;
+    padding: 28px 24px 22px;
+    box-shadow: 0 32px 80px rgba(0,0,0,.6);
+    text-align: center;
+    animation: lb-in .18s ease;
+}
+
+@keyframes lb-in {
+    from { opacity: 0; transform: scale(.96) translateY(6px); }
+    to   { opacity: 1; transform: none; }
+}
+
+.lb-icon {
+    font-size: 2rem;
     color: #f87171;
+    margin-bottom: 14px;
+}
+
+.lb-card h3 {
+    margin: 0 0 10px;
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #fde8e8;
+}
+
+.lb-card p {
+    margin: 0 0 20px;
+    color: #a8b4c8;
+    font-size: 0.86rem;
+    line-height: 1.55;
+}
+
+.lb-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.lb-btn {
+    padding: 9px 20px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.12s, box-shadow 0.12s, background 0.15s;
+    border: none;
+}
+
+.lb-btn-cancel {
+    background: rgba(148,163,184,.12);
+    color: #94a3b8;
+    border: 1px solid rgba(148,163,184,.25);
+}
+.lb-btn-cancel:hover { background: rgba(148,163,184,.2); color: #cbd5e1; }
+
+.lb-btn-confirm {
+    background: rgba(239,68,68,.18);
+    color: #f87171;
+    border: 1px solid rgba(239,68,68,.45);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.lb-btn-confirm:hover {
+    background: rgba(239,68,68,.3);
+    box-shadow: 0 0 18px rgba(239,68,68,.25);
+    transform: translateY(-1px);
 }
 
 .auth-open-btn {

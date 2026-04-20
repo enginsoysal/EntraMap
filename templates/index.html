@@ -203,6 +203,18 @@
 
 <div id="toast-container" aria-live="polite"></div>
 
+<div id="disconnect-lightbox" class="lb-backdrop d-none" role="dialog" aria-modal="true" aria-labelledby="lb-title">
+    <div class="lb-card">
+        <div class="lb-icon"><i class="fas fa-plug-circle-xmark"></i></div>
+        <h3 id="lb-title">Disconnect tenant?</h3>
+        <p>This will wipe all session data, token cache, and sign you out immediately. You can sign in again at any time.</p>
+        <div class="lb-actions">
+            <button id="lb-cancel" class="lb-btn lb-btn-cancel" type="button">Cancel</button>
+            <button id="lb-confirm" class="lb-btn lb-btn-confirm" type="button"><i class="fas fa-plug-circle-xmark"></i> Disconnect</button>
+        </div>
+    </div>
+</div>
+
 <script>
 window.APP_CONTEXT = {
     signedIn: {{ 'true' if signed_in else 'false' }},
