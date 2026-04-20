@@ -300,14 +300,23 @@ def user_map(user_id):
     def clean(obj):
         return {k: v for k, v in obj.items() if not k.startswith("@")}
 
+    # Keep the base profile query conservative so it works across tenants/permission sets.
     user = graph_get(
         "/users/{}?$select=id,displayName,userPrincipalName,jobTitle,department,"
         "mail,accountEnabled,city,country,mobilePhone,officeLocation,companyName,"
-        "createdDateTime,lastPasswordChangeDateTime,signInActivity".format(user_id),
+        "createdDateTime,lastPasswordChangeDateTime".format(user_id),
         token,
     )
-    if not user or "error" in user:
+    if not user:
         return jsonify({"error": "User not found"}), 404
+    if "error" in user:
+        status = 404 if str(user.get("error")).lower() == "itemnotfound" else 502
+        return jsonify({"error": user.get("message", "Failed to load user")}), status
+
+    # signInActivity may require extra permissions or tenant licenses; treat as optional.
+    sign_in_activity = graph_get(f"/users/{user_id}?$select=signInActivity", token)
+    if sign_in_activity and "error" not in sign_in_activity and "signInActivity" in sign_in_activity:
+        user["signInActivity"] = sign_in_activity.get("signInActivity")
 
     add_node({"id": user["id"], "label": user.get("displayName", "?"), "type": "user", "data": clean(user)})
 
