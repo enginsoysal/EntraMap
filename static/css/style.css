@@ -276,13 +276,15 @@ body {
 
 .search-tabs {
     display: flex;
+    flex-wrap: wrap;
     gap: 6px;
     margin-bottom: 10px;
 }
 .search-tab {
-    flex: 1;
-    padding: 5px 8px;
-    font-size: 0.8rem;
+    flex: 1 1 calc(33.33% - 6px);
+    min-width: 0;
+    padding: 5px 7px;
+    font-size: 0.76rem;
     font-weight: 500;
     border: 1px solid var(--border);
     border-radius: var(--radius);
@@ -299,6 +301,9 @@ body {
     background: rgba(59,130,246,.15);
     border-color: rgba(59,130,246,.5);
     color: #93c5fd;
+}
+.search-tab i {
+    margin-right: 4px;
 }
 
 .search-input-wrap {

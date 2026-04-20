@@ -16,6 +16,14 @@ const TYPE_META = {
     ca_policy: { label: "CA Policy", icon: "fa-shield-alt", color: "#ef4444", bg: "#2a0a0a", shape: "tag"             },
 };
 
+const SEARCH_PLACEHOLDERS = {
+    user: "Name or UPN...",
+    group: "Group name...",
+    device: "Device name...",
+    app: "App / Enterprise application name...",
+    ca_policy: "Conditional Access policy name...",
+};
+
 // ── OS Icon Mapping ────────────────────────────────────────────────────────
 
 const OS_ICONS = {
@@ -306,7 +314,7 @@ function handleNodeDoubleTap(node) {
     const type = node.data("type");
     const id = node.id();
 
-    if (type === "user" || type === "group") {
+    if (["user", "group", "device", "app", "ca_policy"].includes(type)) {
         showToast(`Drill-down: loading ${type} structure`, "info");
         loadMap(type, id);
         return;
@@ -559,7 +567,13 @@ function renderSearchResults(items) {
         return;
     }
 
-    const iconMap = { user: "fa-user", group: "fa-users" };
+    const iconMap = {
+        user: "fa-user",
+        group: "fa-users",
+        device: "fa-laptop",
+        app: "fa-cube",
+        ca_policy: "fa-shield-halved",
+    };
 
     items.forEach(item => {
         const div = document.createElement("div");
@@ -951,7 +965,7 @@ function enableSignedOutMode() {
         input.placeholder = "Sign in to search...";
     }
 
-    document.querySelectorAll(".search-tab, #btn-fit, #btn-reset-layout, #btn-export-json, #insight-unmanaged, #insight-noncompliant, #insight-reset")
+    document.querySelectorAll(".search-tab, #btn-fit, #btn-reset-layout, #btn-refresh, #btn-export-json, #insight-unmanaged, #insight-noncompliant, #insight-reset")
         .forEach(el => { el.disabled = true; });
 
     const emptyState = document.getElementById("empty-state");
@@ -1021,8 +1035,10 @@ document.addEventListener("DOMContentLoaded", () => {
             this.classList.add("active");
             searchType = this.dataset.type;
             document.getElementById("search-results").innerHTML = "";
-            document.getElementById("search-input").value = "";
-            document.getElementById("search-input").focus();
+            const input = document.getElementById("search-input");
+            input.value = "";
+            input.placeholder = SEARCH_PLACEHOLDERS[searchType] || "Search...";
+            input.focus();
         });
     });
 

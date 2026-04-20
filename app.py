@@ -314,6 +314,76 @@ def search():
             for g in items
         ])
 
+    if search_type == "device":
+        endpoint = (
+            f'/devices?$search="displayName:{query}"'
+            f"&$select=id,displayName,operatingSystem,deviceId,isManaged,isCompliant"
+            f"&$top=15&$count=true"
+        )
+        data = graph_get(endpoint, token, extra_headers={"ConsistencyLevel": "eventual"})
+        items = data.get("value", []) if data and "value" in data else []
+        if not items:
+            safe_q = query.replace("'", "''")
+            data = graph_get(
+                f"/devices?$filter=startswith(displayName,'{safe_q}')"
+                f"&$select=id,displayName,operatingSystem,deviceId,isManaged,isCompliant&$top=15",
+                token,
+            )
+            items = data.get("value", []) if data and "value" in data else []
+        return jsonify([
+            {
+                "id": d["id"],
+                "label": d.get("displayName", ""),
+                "subtitle": d.get("operatingSystem", ""),
+                "type": "device",
+            }
+            for d in items
+        ])
+
+    if search_type == "app":
+        endpoint = (
+            f'/servicePrincipals?$search="displayName:{query}"'
+            f"&$select=id,displayName,appId,publisherName,servicePrincipalType"
+            f"&$top=15&$count=true"
+        )
+        data = graph_get(endpoint, token, extra_headers={"ConsistencyLevel": "eventual"})
+        items = data.get("value", []) if data and "value" in data else []
+        if not items:
+            safe_q = query.replace("'", "''")
+            data = graph_get(
+                f"/servicePrincipals?$filter=startswith(displayName,'{safe_q}')"
+                f"&$select=id,displayName,appId,publisherName,servicePrincipalType&$top=15",
+                token,
+            )
+            items = data.get("value", []) if data and "value" in data else []
+        return jsonify([
+            {
+                "id": a["id"],
+                "label": a.get("displayName", ""),
+                "subtitle": a.get("publisherName", "") or a.get("appId", ""),
+                "type": "app",
+            }
+            for a in items
+        ])
+
+    if search_type == "ca_policy":
+        safe_q = query.replace("'", "''")
+        data = graph_get(
+            f"/identity/conditionalAccessPolicies?$filter=startswith(displayName,'{safe_q}')"
+            f"&$select=id,displayName,state&$top=15",
+            token,
+        )
+        items = data.get("value", []) if data and "value" in data else []
+        return jsonify([
+            {
+                "id": p["id"],
+                "label": p.get("displayName", ""),
+                "subtitle": p.get("state", ""),
+                "type": "ca_policy",
+            }
+            for p in items
+        ])
+
     return jsonify([])
 
 
@@ -370,8 +440,9 @@ def user_map(user_id):
 
     group_ids = []
     for m in graph_get_all(
-        f"/users/{user_id}/memberOf?$select=id,displayName,description,groupTypes,securityEnabled,mailEnabled",
+        f"/users/{user_id}/transitiveMemberOf?$select=id,displayName,description,groupTypes,securityEnabled,mailEnabled",
         token,
+        max_items=400,
     ):
         odata_type = m.get("@odata.type", "")
         # Accept if explicitly typed as group, or if it has typical group fields,
@@ -388,8 +459,8 @@ def user_map(user_id):
         edges.append({"source": user["id"], "target": m["id"], "label": "member of"})
 
     seen_apps = set()
-    for gid in group_ids[:25]:
-        for assignment in graph_get_all(f"/groups/{gid}/appRoleAssignments", token, max_items=30):
+    for gid in group_ids:
+        for assignment in graph_get_all(f"/groups/{gid}/appRoleAssignments", token, max_items=100):
             sp_id = assignment.get("resourceId")
             if not sp_id:
                 continue
@@ -419,6 +490,177 @@ def user_map(user_id):
         if included and not excluded:
             add_node({"id": policy["id"], "label": policy.get("displayName", "CA Policy"), "type": "ca_policy", "data": clean(policy)})
             edges.append({"source": user["id"], "target": policy["id"], "label": "affected by"})
+
+    return jsonify({"nodes": nodes, "edges": edges})
+
+
+# ── API: device map ───────────────────────────────────────────────────────────
+
+@app.route("/api/map/device/<device_id>")
+@login_required
+def device_map(device_id):
+    token = _get_token_from_cache()
+    if not token:
+        return jsonify({"error": "Session expired"}), 401
+
+    nodes, edges, node_ids = [], [], set()
+
+    def add_node(n):
+        if n["id"] not in node_ids:
+            node_ids.add(n["id"])
+            nodes.append(n)
+
+    def clean(obj):
+        return {k: v for k, v in obj.items() if not k.startswith("@")}
+
+    device = graph_get(
+        f"/devices/{device_id}?$select=id,displayName,operatingSystem,operatingSystemVersion,isManaged,isCompliant,trustType,deviceId",
+        token,
+    )
+    if not device or "error" in device:
+        return jsonify({"error": "Device not found"}), 404
+
+    add_node({"id": device["id"], "label": device.get("displayName", "?"), "type": "device", "data": clean(device)})
+
+    for owner in graph_get_all(
+        f"/devices/{device_id}/registeredOwners?$select=id,displayName,userPrincipalName,jobTitle",
+        token,
+        max_items=50,
+    ):
+        if "#microsoft.graph.user" not in owner.get("@odata.type", "") and "userPrincipalName" not in owner:
+            continue
+        add_node({"id": owner["id"], "label": owner.get("displayName", "?"), "type": "user", "data": clean(owner)})
+        edges.append({"source": owner["id"], "target": device["id"], "label": "owns"})
+
+    for user in graph_get_all(
+        f"/devices/{device_id}/registeredUsers?$select=id,displayName,userPrincipalName,jobTitle",
+        token,
+        max_items=50,
+    ):
+        if "#microsoft.graph.user" not in user.get("@odata.type", "") and "userPrincipalName" not in user:
+            continue
+        add_node({"id": user["id"], "label": user.get("displayName", "?"), "type": "user", "data": clean(user)})
+        edges.append({"source": user["id"], "target": device["id"], "label": "registered"})
+
+    return jsonify({"nodes": nodes, "edges": edges})
+
+
+# ── API: app map ──────────────────────────────────────────────────────────────
+
+@app.route("/api/map/app/<app_id>")
+@login_required
+def app_map(app_id):
+    token = _get_token_from_cache()
+    if not token:
+        return jsonify({"error": "Session expired"}), 401
+
+    nodes, edges, node_ids = [], [], set()
+
+    def add_node(n):
+        if n["id"] not in node_ids:
+            node_ids.add(n["id"])
+            nodes.append(n)
+
+    def clean(obj):
+        return {k: v for k, v in obj.items() if not k.startswith("@")}
+
+    app_sp = graph_get(
+        f"/servicePrincipals/{app_id}?$select=id,displayName,appId,description,servicePrincipalType,publisherName",
+        token,
+    )
+    if not app_sp or "error" in app_sp:
+        return jsonify({"error": "App not found"}), 404
+
+    add_node({"id": app_sp["id"], "label": app_sp.get("displayName", "?"), "type": "app", "data": clean(app_sp)})
+
+    for principal in graph_get_all(
+        f"/servicePrincipals/{app_id}/appRoleAssignedTo?$select=id,principalId,principalDisplayName,principalType",
+        token,
+        max_items=200,
+    ):
+        principal_id = principal.get("principalId")
+        principal_type = (principal.get("principalType") or "").lower()
+        if not principal_id:
+            continue
+        principal_label = principal.get("principalDisplayName") or principal_id
+        if principal_type == "user":
+            add_node({"id": principal_id, "label": principal_label, "type": "user", "data": {"id": principal_id, "displayName": principal_label}})
+            edges.append({"source": principal_id, "target": app_sp["id"], "label": "assigned to"})
+        elif principal_type == "group":
+            add_node({"id": principal_id, "label": principal_label, "type": "group", "data": {"id": principal_id, "displayName": principal_label}})
+            edges.append({"source": principal_id, "target": app_sp["id"], "label": "assigned to"})
+
+    for policy in graph_get_all(
+        "/identity/conditionalAccessPolicies?$select=id,displayName,state,conditions,grantControls",
+        token,
+        max_items=200,
+    ):
+        cond = policy.get("conditions", {})
+        a_cond = cond.get("applications", {})
+        inc_apps = a_cond.get("includeApplications", [])
+        exc_apps = a_cond.get("excludeApplications", [])
+        sp_app_id = app_sp.get("appId")
+        included = "All" in inc_apps or (sp_app_id and sp_app_id in inc_apps)
+        excluded = sp_app_id and sp_app_id in exc_apps
+        if included and not excluded:
+            add_node({"id": policy["id"], "label": policy.get("displayName", "CA Policy"), "type": "ca_policy", "data": clean(policy)})
+            edges.append({"source": app_sp["id"], "target": policy["id"], "label": "scoped by"})
+
+    return jsonify({"nodes": nodes, "edges": edges})
+
+
+# ── API: CA policy map ───────────────────────────────────────────────────────
+
+@app.route("/api/map/ca_policy/<policy_id>")
+@login_required
+def ca_policy_map(policy_id):
+    token = _get_token_from_cache()
+    if not token:
+        return jsonify({"error": "Session expired"}), 401
+
+    nodes, edges, node_ids = [], [], set()
+
+    def add_node(n):
+        if n["id"] not in node_ids:
+            node_ids.add(n["id"])
+            nodes.append(n)
+
+    def clean(obj):
+        return {k: v for k, v in obj.items() if not k.startswith("@")}
+
+    policy = graph_get(
+        f"/identity/conditionalAccessPolicies/{policy_id}?$select=id,displayName,state,conditions,grantControls,sessionControls",
+        token,
+    )
+    if not policy or "error" in policy:
+        return jsonify({"error": "CA policy not found"}), 404
+
+    add_node({"id": policy["id"], "label": policy.get("displayName", "CA Policy"), "type": "ca_policy", "data": clean(policy)})
+
+    users_cond = policy.get("conditions", {}).get("users", {})
+    apps_cond = policy.get("conditions", {}).get("applications", {})
+
+    for group_id in users_cond.get("includeGroups", [])[:120]:
+        group = graph_get(
+            f"/groups/{group_id}?$select=id,displayName,description,groupTypes,securityEnabled,mailEnabled",
+            token,
+        )
+        if not group or "error" in group:
+            continue
+        add_node({"id": group["id"], "label": group.get("displayName", "Group"), "type": "group", "data": clean(group)})
+        edges.append({"source": group["id"], "target": policy["id"], "label": "included in"})
+
+    for app_client_id in apps_cond.get("includeApplications", [])[:120]:
+        sp = graph_get(
+            f"/servicePrincipals?$filter=appId eq '{app_client_id}'&$select=id,displayName,appId,publisherName,servicePrincipalType&$top=1",
+            token,
+        )
+        candidates = sp.get("value", []) if sp and "value" in sp else []
+        if not candidates:
+            continue
+        app_sp = candidates[0]
+        add_node({"id": app_sp["id"], "label": app_sp.get("displayName", "App"), "type": "app", "data": clean(app_sp)})
+        edges.append({"source": app_sp["id"], "target": policy["id"], "label": "included in"})
 
     return jsonify({"nodes": nodes, "edges": edges})
 

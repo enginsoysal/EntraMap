@@ -36,10 +36,13 @@
             <div class="search-tabs">
                 <button class="search-tab active" data-type="user"><i class="fas fa-user"></i> User</button>
                 <button class="search-tab" data-type="group"><i class="fas fa-users"></i> Group</button>
+                <button class="search-tab" data-type="device"><i class="fas fa-laptop"></i> Device</button>
+                <button class="search-tab" data-type="app"><i class="fas fa-cube"></i> App</button>
+                <button class="search-tab" data-type="ca_policy"><i class="fas fa-shield-halved"></i> CA Policy</button>
             </div>
             <div class="search-input-wrap">
                 <i class="fas fa-search search-prefix-icon"></i>
-                <input id="search-input" type="text" class="form-control search-field" placeholder="Name or UPN..." autocomplete="off" spellcheck="false" />
+                <input id="search-input" type="text" class="form-control search-field" placeholder="Search users, groups, devices, apps, or policies..." autocomplete="off" spellcheck="false" />
                 <span id="search-spinner" class="search-spinner d-none"><i class="fas fa-circle-notch fa-spin"></i></span>
             </div>
         </div>
@@ -98,7 +101,7 @@
 
         <div id="empty-state">
             <i class="fas fa-project-diagram empty-icon"></i>
-            <h5>Search for a user or group</h5>
+            <h5>Search for any Entra object</h5>
             <p>Use the left panel to get started.</p>
         </div>
     </div>
