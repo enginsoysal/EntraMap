@@ -20,17 +20,20 @@
             <div id="user-menu" class="ms-auto d-flex align-items-center gap-2">
                 <span id="user-name" title="{{ user.upn if user else '' }}">{{ user.name if user else 'Guest' }}</span>
                 <span id="app-version">v{{ version }}</span>
-                {% if signed_in %}
-                <button id="disconnect-btn" type="button" title="Disconnect tenant — wipes all session data and signs out">
-                    <i class="fas fa-plug-circle-xmark"></i> Disconnect tenant
-                </button>
-                {% else %}
+                {% if not signed_in %}
                 <button id="open-auth-modal" class="auth-open-btn" type="button" title="Sign in">
                     <i class="fas fa-right-to-bracket"></i>
                 </button>
                 {% endif %}
             </div>
         </div>
+        {% if signed_in %}
+        <div id="disconnect-bar">
+            <button id="disconnect-btn" type="button">
+                <i class="fas fa-plug-circle-xmark"></i> Disconnect tenant
+            </button>
+        </div>
+        {% endif %}
 
         <div id="search-section">
             <div class="search-tabs">
