@@ -1,0 +1,5 @@
+flask==3.0.3
+msal==1.31.0
+requests==2.32.3
+python-dotenv==1.0.1
+gunicorn==22.0.0

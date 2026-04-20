@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EntraMap — Inloggen</title>
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        rel="stylesheet"
+    />
+    <link
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+        rel="stylesheet"
+    />
+    <style>
+        :root {
+            --bg:    #0b0d16;
+            --card:  #13162a;
+            --border:#252a47;
+            --blue:  #3b82f6;
+            --text:  #dde3f4;
+            --muted: #7a8ab0;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        /* Animated gradient orbs in the background */
+        .bg-orb {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(100px);
+            opacity: 0.18;
+            pointer-events: none;
+            animation: float 12s ease-in-out infinite alternate;
+        }
+        .bg-orb-1 { width: 500px; height: 500px; background: #3b82f6; top: -150px; left: -150px; }
+        .bg-orb-2 { width: 400px; height: 400px; background: #8b5cf6; bottom: -100px; right: -100px; animation-delay: -6s; }
+        @keyframes float {
+            from { transform: translate(0, 0); }
+            to   { transform: translate(40px, 30px); }
+        }
+
+        .login-wrap {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            max-width: 400px;
+            padding: 0 16px;
+        }
+
+        .login-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 44px 40px 40px;
+            text-align: center;
+            box-shadow: 0 24px 80px rgba(0,0,0,.5);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 32px;
+        }
+        .brand-icon {
+            width: 46px;
+            height: 46px;
+            background: linear-gradient(135deg, #2563eb, #7c3aed);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            color: #fff;
+        }
+        .brand-name {
+            font-size: 1.6rem;
+            font-weight: 800;
+            color: var(--text);
+            letter-spacing: -0.5px;
+        }
+        .brand-sub {
+            font-size: 0.78rem;
+            color: var(--muted);
+            margin-top: -2px;
+            text-align: left;
+        }
+
+        .tagline {
+            font-size: 0.9rem;
+            color: var(--muted);
+            margin-bottom: 32px;
+            line-height: 1.55;
+        }
+
+        /* Microsoft sign-in button — official brand style */
+        .btn-microsoft {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            width: 100%;
+            padding: 12px 20px;
+            background: #ffffff;
+            color: #000000;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.15s, box-shadow 0.15s;
+            letter-spacing: 0.1px;
+        }
+        .btn-microsoft:hover {
+            background: #f0f0f0;
+            box-shadow: 0 2px 12px rgba(0,0,0,.3);
+            color: #000;
+        }
+        .btn-microsoft:active { background: #e4e4e4; }
+
+        /* Microsoft 4-square logo */
+        .ms-logo {
+            width: 21px;
+            height: 21px;
+            flex-shrink: 0;
+        }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 24px 0;
+            color: var(--muted);
+            font-size: 0.75rem;
+        }
+        .divider::before, .divider::after {
+            content: "";
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            text-align: left;
+        }
+        .feature {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            font-size: 0.78rem;
+            color: var(--muted);
+        }
+        .feature i {
+            color: var(--blue);
+            margin-top: 1px;
+            flex-shrink: 0;
+            font-size: 0.75rem;
+        }
+
+        .error-banner {
+            background: rgba(239,68,68,.1);
+            border: 1px solid rgba(239,68,68,.35);
+            color: #f87171;
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 0.82rem;
+            margin-bottom: 20px;
+            text-align: left;
+            display: flex;
+            gap: 8px;
+            align-items: flex-start;
+        }
+        .error-banner i { flex-shrink: 0; margin-top: 1px; }
+
+        .footer-note {
+            margin-top: 28px;
+            font-size: 0.72rem;
+            color: var(--muted);
+            opacity: 0.7;
+            line-height: 1.5;
+        }
+        .footer-note a { color: var(--muted); }
+    </style>
+</head>
+<body>
+
+<div class="bg-orb bg-orb-1"></div>
+<div class="bg-orb bg-orb-2"></div>
+
+<div class="login-wrap">
+    <div class="login-card">
+
+        <!-- Brand -->
+        <div class="brand">
+            <div class="brand-icon">
+                <i class="fas fa-project-diagram"></i>
+            </div>
+            <div>
+                <div class="brand-name">EntraMap</div>
+                <div class="brand-sub">Microsoft Entra ID visualizer</div>
+            </div>
+        </div>
+
+        <!-- Tagline -->
+        <p class="tagline">
+            Visualiseer users, devices, groepen, apps en Conditional Access policies van jouw tenant — in één oogopslag.
+        </p>
+
+        <!-- Error banner -->
+        {% if error %}
+        <div class="error-banner">
+            <i class="fas fa-exclamation-circle"></i>
+            <span>{{ error }}</span>
+        </div>
+        {% endif %}
+
+        <!-- Sign in button -->
+        <a href="/auth/signin" class="btn-microsoft">
+            <!-- Official Microsoft SVG logo -->
+            <svg class="ms-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 21 21">
+                <rect x="1"  y="1"  width="9" height="9" fill="#f25022"/>
+                <rect x="11" y="1"  width="9" height="9" fill="#7fba00"/>
+                <rect x="1"  y="11" width="9" height="9" fill="#00a4ef"/>
+                <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+            </svg>
+            Sign in with Microsoft
+        </a>
+
+        <!-- Admin consent note -->
+        <div class="divider">wat heb je nodig?</div>
+
+        <div class="features">
+            <div class="feature">
+                <i class="fas fa-check-circle"></i>
+                <span>Microsoft 365 of Azure werk­account</span>
+            </div>
+            <div class="feature">
+                <i class="fas fa-check-circle"></i>
+                <span>Eerste aanmelding vereist Global Admin of Privileged Role Admin</span>
+            </div>
+            <div class="feature">
+                <i class="fas fa-check-circle"></i>
+                <span>Na eenmalige toestemming kunnen alle gebruikers van de tenant inloggen</span>
+            </div>
+            <div class="feature">
+                <i class="fas fa-check-circle"></i>
+                <span>Geen extra configuratie in Azure vereist</span>
+            </div>
+        </div>
+
+        <p class="footer-note">
+            Protected by Microsoft Entra ID &nbsp;·&nbsp;
+            Jouw data verlaat nooit jouw sessie
+        </p>
+
+    </div>
+</div>
+
+</body>
+</html>
