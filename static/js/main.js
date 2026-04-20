@@ -4,7 +4,7 @@
 
 "use strict";
 
-const APP_CONTEXT = window.APP_CONTEXT || { signedIn: false, version: "0.3.12" };
+const APP_CONTEXT = window.APP_CONTEXT || { signedIn: false, version: "0.3.13" };
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -654,8 +654,12 @@ async function performSearch(query) {
                 `height=${h}`,
                 `left=${left}`,
                 `top=${top}`,
+                "popup=yes",
                 "resizable=yes",
                 "scrollbars=yes",
+                "toolbar=no",
+                "menubar=no",
+                "status=no",
             ].join(",");
             const popup = window.open(data.reauth_url, "entramapConsent", features);
             if (!popup) {
@@ -1065,8 +1069,12 @@ function setupMicrosoftSignInPopup() {
                 `height=${height}`,
                 `left=${left}`,
                 `top=${top}`,
+                "popup=yes",
                 "resizable=yes",
                 "scrollbars=yes",
+                "toolbar=no",
+                "menubar=no",
+                "status=no",
             ].join(",");
 
             const popup = window.open(href, "entramapSignIn", features);

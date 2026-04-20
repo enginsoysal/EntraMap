@@ -1,5 +1,10 @@
 # Change Log
 
+## 0.3.13 - 2026-04-20
+
+- Bumped application version to 0.3.13
+- Added explicit popup window hints to sign-in and consent flows so browsers open a popup instead of a normal tab when allowed
+
 ## 0.3.12 - 2026-04-20
 
 - Bumped application version to 0.3.12
