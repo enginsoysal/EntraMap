@@ -27,13 +27,6 @@
                 {% endif %}
             </div>
         </div>
-        {% if signed_in %}
-        <div id="disconnect-bar">
-            <button id="disconnect-btn" type="button">
-                <i class="fas fa-plug-circle-xmark"></i> Disconnect tenant
-            </button>
-        </div>
-        {% endif %}
 
         <div id="search-section">
             <div class="search-tabs">
@@ -110,6 +103,12 @@
             <a href="https://github.com/enginsoysal/EntraMap" target="_blank" title="GitHub Repository"><i class="fab fa-github"></i> GitHub</a>
             <span class="footer-divider">·</span>
             <a href="https://linkedin.com/in/enginsoysal" target="_blank" title="LinkedIn Profile">Made by <i class="fab fa-linkedin"></i> Engin Soysal</a>
+            {% if signed_in %}
+            <span class="footer-divider">·</span>
+            <button id="disconnect-btn" type="button" title="Disconnect tenant — wipes all session data and signs out">
+                <i class="fas fa-plug-circle-xmark"></i> Disconnect tenant
+            </button>
+            {% endif %}
         </div>
     </div>
 

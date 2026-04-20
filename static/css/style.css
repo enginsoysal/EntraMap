@@ -131,14 +131,6 @@ body {
 }
 #signout-btn:hover { color: var(--text-primary); background: var(--bg-hover); }
 
-#disconnect-bar {
-    padding: 6px 10px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-}
-
 #disconnect-btn {
     display: inline-flex;
     align-items: center;
