@@ -1,5 +1,13 @@
 # Change Log
 
+## 0.3.5 - 2026-04-20
+
+- Bumped application version to 0.3.5
+- Added Refresh button in graph toolbar to reload live Graph data for the current node
+- Force re-consent prompt after Disconnect tenant so permissions are requested again on next sign-in
+- Added dedicated Sign Out button in header (separate from Disconnect tenant in footer)
+- Widened memberOf group detection to handle tenants that omit @odata.type in API responses
+
 ## 0.3.4 - 2026-04-20
 
 - Bumped application version to 0.3.4
