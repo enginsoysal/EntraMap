@@ -289,6 +289,7 @@ function renderGraph(data) {
             group: "nodes",
             data: {
                 id:        node.id,
+        renderRelationshipRail(lastLoadedId);
                 label:     prefixedLabel,
                 fullLabel: node.label,
                 type:      node.type,
@@ -298,11 +299,13 @@ function renderGraph(data) {
         });
     });
 
+        renderRelationshipRail(nodeId);
     data.edges.forEach(edge => {
         elements.push({
             group: "edges",
             data: {
                 id:     `${edge.source}__${edge.target}`,
+        renderRelationshipRail(null);
                 source: edge.source,
                 target: edge.target,
                 label:  edge.label,
@@ -323,6 +326,7 @@ function handleNodeDoubleTap(node) {
 
     if (["user", "group", "device", "app", "ca_policy"].includes(type)) {
         showToast(`Drill-down: loading ${type} structure`, "info");
+        renderRelationshipRail(data.id);
         loadMap(type, id);
         return;
     }
@@ -331,8 +335,87 @@ function handleNodeDoubleTap(node) {
     setActiveNode(id);
     renderDetailPanel(node.data());
     cy.animate({
+        renderRelationshipRail(lastLoadedId);
         fit: { eles: node.closedNeighborhood(), padding: 80 },
         duration: 280,
+    function renderRelationshipRail(nodeId) {
+        const rail = document.getElementById("relationship-rail");
+        const title = document.getElementById("rr-title");
+        const groupsWrap = document.getElementById("rr-groups");
+        if (!rail || !title || !groupsWrap || !cy || !nodeId) {
+            if (rail) rail.classList.add("d-none");
+            return;
+        }
+
+        const node = cy.getElementById(nodeId);
+        if (!node || !node.length) {
+            rail.classList.add("d-none");
+            return;
+        }
+
+        const neighbors = [];
+        node.connectedEdges().forEach(edge => {
+            const other = edge.source().id() === node.id() ? edge.target() : edge.source();
+            if (!other || !other.length) return;
+            neighbors.push({
+                id: other.id(),
+                label: other.data("fullLabel") || other.data("label") || other.id(),
+                type: other.data("type") || "unknown",
+                edgeLabel: edge.data("label") || "linked",
+            });
+        });
+
+        const grouped = {
+            user: [],
+            group: [],
+            device: [],
+            app: [],
+            ca_policy: [],
+        };
+        neighbors.forEach(item => {
+            if (grouped[item.type]) grouped[item.type].push(item);
+        });
+
+        const metaOrder = ["user", "group", "device", "app", "ca_policy"];
+        const html = metaOrder
+            .filter(type => grouped[type].length)
+            .map(type => {
+                const meta = TYPE_META[type] || { label: type, icon: "fa-circle" };
+                const chips = grouped[type]
+                    .map(item => `
+                        <button class="rr-chip" type="button" data-node-id="${escHtml(item.id)}">
+                            <span class="rr-chip-main"><i class="fas ${meta.icon}"></i> ${escHtml(item.label)}</span>
+                            <span class="rr-chip-sub">${escHtml(item.edgeLabel)}</span>
+                        </button>
+                    `)
+                    .join("");
+                return `
+                    <section class="rr-group">
+                        <div class="rr-group-title">${meta.label}s <span>${grouped[type].length}</span></div>
+                        <div class="rr-chip-list">${chips}</div>
+                    </section>
+                `;
+            })
+            .join("");
+
+        title.textContent = node.data("fullLabel") || node.data("label") || "Linked objects";
+        groupsWrap.innerHTML = html || `<div class="rr-empty">No direct links visible in the current graph.</div>`;
+        rail.classList.remove("d-none");
+
+        groupsWrap.querySelectorAll(".rr-chip").forEach(btn => {
+            btn.addEventListener("click", () => {
+                const targetId = btn.dataset.nodeId;
+                const targetNode = cy.getElementById(targetId);
+                if (!targetNode || !targetNode.length) return;
+                setActiveNode(targetId);
+                renderDetailPanel(targetNode.data());
+                cy.animate({
+                    fit: { eles: targetNode.closedNeighborhood(), padding: 80 },
+                    duration: 260,
+                });
+            });
+        });
+    }
     });
 }
 
@@ -1089,6 +1172,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Detail close
     document.getElementById("detail-close").addEventListener("click", hideDetailPanel);
+    document.getElementById("rr-reset").addEventListener("click", () => {
+        if (!lastLoadedId) return;
+        const node = cy.getElementById(lastLoadedId);
+        if (!node || !node.length) return;
+        setActiveNode(lastLoadedId);
+        renderDetailPanel(node.data());
+        cy.fit(node.closedNeighborhood(), 80);
+    });
 
     // Search tabs
     document.querySelectorAll(".search-tab").forEach(tab => {

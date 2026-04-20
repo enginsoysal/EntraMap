@@ -143,6 +143,52 @@ def graph_get_all(endpoint, token, extra_headers=None, max_items=100):
     return results[:max_items]
 
 
+def get_intune_group_app_index(token, target_group_ids=None, max_apps=400):
+    target_ids = set(target_group_ids or [])
+    app_index = {}
+    apps = graph_get_all(
+        "/deviceAppManagement/mobileApps"
+        "?$select=id,displayName,publisher,description,createdDateTime,lastModifiedDateTime"
+        "&$top=100",
+        token,
+        max_items=max_apps,
+    )
+
+    for app in apps:
+        assignments = graph_get_all(
+            f"/deviceAppManagement/mobileApps/{app['id']}/assignments?$top=50",
+            token,
+            max_items=50,
+        )
+        for assignment in assignments:
+            target = assignment.get("target", {})
+            target_type = target.get("@odata.type", "")
+            if "groupAssignmentTarget" not in target_type:
+                continue
+
+            group_id = target.get("groupId")
+            if not group_id:
+                continue
+            if target_ids and group_id not in target_ids:
+                continue
+
+            app_index.setdefault(group_id, []).append(
+                {
+                    "app": {
+                        "id": app["id"],
+                        "displayName": app.get("displayName", "Intune app"),
+                        "publisher": app.get("publisher", ""),
+                        "description": app.get("description", ""),
+                        "createdDateTime": app.get("createdDateTime", ""),
+                        "lastModifiedDateTime": app.get("lastModifiedDateTime", ""),
+                    },
+                    "edge_label": "excluded from" if "exclusion" in target_type.lower() else "assigned to",
+                }
+            )
+
+    return app_index
+
+
 # ── Auth routes ───────────────────────────────────────────────────────────────
 
 @app.route("/login")
@@ -532,6 +578,15 @@ def user_map(user_id):
         add_node({"id": m["id"], "label": m.get("displayName", "Group"), "type": "group", "data": clean(m)})
         edges.append({"source": user["id"], "target": m["id"], "label": "member of"})
 
+    intune_app_index = get_intune_group_app_index(token, group_ids)
+    for gid, app_links in intune_app_index.items():
+        for app_link in app_links:
+            app_obj = app_link["app"]
+            if app_obj["id"] not in node_ids:
+                add_node({"id": app_obj["id"], "label": app_obj.get("displayName", "Intune app"), "type": "app", "data": clean(app_obj)})
+            if not any(e["source"] == gid and e["target"] == app_obj["id"] and e["label"] == app_link["edge_label"] for e in edges):
+                edges.append({"source": gid, "target": app_obj["id"], "label": app_link["edge_label"]})
+
     seen_apps = set()
     for gid in group_ids:
         for assignment in graph_get_all(f"/groups/{gid}/appRoleAssignments", token, max_items=100):
@@ -790,6 +845,12 @@ def group_map(group_id):
         if sp and "error" not in sp:
             add_node({"id": sp["id"], "label": sp.get("displayName", "App"), "type": "app", "data": clean(sp)})
             edges.append({"source": group["id"], "target": sp["id"], "label": "access to"})
+
+    for app_link in get_intune_group_app_index(token, [group_id]).get(group_id, []):
+        app_obj = app_link["app"]
+        if app_obj["id"] not in node_ids:
+            add_node({"id": app_obj["id"], "label": app_obj.get("displayName", "Intune app"), "type": "app", "data": clean(app_obj)})
+        edges.append({"source": group["id"], "target": app_obj["id"], "label": app_link["edge_label"]})
 
     for policy in graph_get_all(
         "/identity/conditionalAccessPolicies?$select=id,displayName,state,conditions,grantControls",

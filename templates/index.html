@@ -100,6 +100,17 @@
             <div class="loading-inner"><div class="spinner-ring"></div><p>Loading Entra data&hellip;</p></div>
         </div>
 
+        <div id="relationship-rail" class="d-none" aria-live="polite">
+            <div class="rr-head">
+                <div>
+                    <div class="rr-kicker">Linked Objects</div>
+                    <div id="rr-title" class="rr-title">No object selected</div>
+                </div>
+                <button id="rr-reset" class="rr-reset" type="button">Reset</button>
+            </div>
+            <div id="rr-groups" class="rr-groups"></div>
+        </div>
+
         <div id="empty-state">
             <i class="fas fa-project-diagram empty-icon"></i>
             <h5>Search for any Entra object</h5>

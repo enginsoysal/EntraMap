@@ -799,6 +799,117 @@ body {
 #empty-state h5 { color: var(--text-muted); font-size: 1rem; margin-bottom: 8px; }
 #empty-state p  { color: var(--border-light); font-size: 0.875rem; }
 
+#relationship-rail {
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    bottom: 14px;
+    z-index: 12;
+    background: rgba(19,22,42,.92);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    backdrop-filter: blur(14px);
+    box-shadow: 0 18px 40px rgba(0,0,0,.35);
+    padding: 12px 14px;
+    max-height: 180px;
+    overflow: hidden;
+}
+
+.rr-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.rr-kicker {
+    color: #7dd3fc;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+}
+
+.rr-title {
+    color: var(--text-primary);
+    font-size: 0.92rem;
+    font-weight: 700;
+}
+
+.rr-reset {
+    border: 1px solid var(--border-light);
+    background: rgba(59,130,246,.08);
+    color: #93c5fd;
+    border-radius: 999px;
+    padding: 5px 10px;
+    font-size: 0.74rem;
+}
+
+.rr-groups {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+}
+
+.rr-group {
+    min-width: 220px;
+    max-width: 260px;
+}
+
+.rr-group-title {
+    display: flex;
+    justify-content: space-between;
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+    font-weight: 700;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+}
+
+.rr-chip-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.rr-chip {
+    width: 100%;
+    text-align: left;
+    border: 1px solid var(--border);
+    background: rgba(11,13,22,.75);
+    border-radius: 12px;
+    padding: 8px 10px;
+    color: var(--text-primary);
+}
+
+.rr-chip:hover {
+    border-color: rgba(59,130,246,.45);
+    background: rgba(59,130,246,.1);
+}
+
+.rr-chip-main {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+.rr-chip-sub {
+    display: block;
+    margin-top: 3px;
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+}
+
+.rr-empty {
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+}
+
 /* ============================================================
    Toast
    ============================================================ */
