@@ -374,10 +374,18 @@ def user_map(user_id):
         token,
     ):
         odata_type = m.get("@odata.type", "")
-        if "#microsoft.graph.group" in odata_type or (not odata_type and "groupTypes" in m):
-            group_ids.append(m["id"])
-            add_node({"id": m["id"], "label": m.get("displayName", "Group"), "type": "group", "data": clean(m)})
-            edges.append({"source": user["id"], "target": m["id"], "label": "member of"})
+        # Accept if explicitly typed as group, or if it has typical group fields,
+        # or if @odata.type is absent (some tenants omit it via $select)
+        is_group = (
+            "#microsoft.graph.group" in odata_type
+            or "groupTypes" in m
+            or "securityEnabled" in m
+        )
+        if not is_group:
+            continue
+        group_ids.append(m["id"])
+        add_node({"id": m["id"], "label": m.get("displayName", "Group"), "type": "group", "data": clean(m)})
+        edges.append({"source": user["id"], "target": m["id"], "label": "member of"})
 
     seen_apps = set()
     for gid in group_ids[:25]:
