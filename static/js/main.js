@@ -4,7 +4,7 @@
 
 "use strict";
 
-const APP_CONTEXT = window.APP_CONTEXT || { signedIn: false, version: "0.3.13" };
+const APP_CONTEXT = window.APP_CONTEXT || { signedIn: false, version: "0.3.14" };
 
 // ── Constants ──────────────────────────────────────────────────────────────
 

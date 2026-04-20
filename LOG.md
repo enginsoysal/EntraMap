@@ -1,5 +1,11 @@
 # Change Log
 
+## 0.3.14 - 2026-04-20
+
+- Bumped application version to 0.3.14
+- Forced the sign-in buttons themselves to open the Microsoft auth flow in a popup window
+- Preserved popup callback completion and main-window refresh after successful sign-in
+
 ## 0.3.13 - 2026-04-20
 
 - Bumped application version to 0.3.13
