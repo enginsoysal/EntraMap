@@ -41,6 +41,8 @@ let searchType  = "user";
 let searchTimer = null;
 let activeNodeId = null;
 let lastGraphData = null;
+let lastTapNodeId = null;
+let lastTapAt = 0;
 
 // ── Cytoscape initialisation ──────────────────────────────────────────────
 
@@ -115,6 +117,26 @@ function buildCyStyle() {
                 "width":  54, "height": 54,
             },
         },
+        {
+            selector: "node[hasPhoto = 1]",
+            style: {
+                "background-image": "data(photo)",
+                "background-fit": "cover",
+                "background-clip": "node",
+                "background-opacity": 1,
+                "text-outline-width": 2,
+                "text-outline-color": "#0b0d16",
+            },
+        },
+        {
+            selector: "node[type='group'][hasPhoto = 1]",
+            style: {
+                "shape": "ellipse",
+                "width": 58,
+                "height": 58,
+                "border-width": 3,
+            },
+        },
         // selected
         {
             selector: "node:selected",
@@ -182,9 +204,20 @@ function initCytoscape() {
         wheelSensitivity: 0.3,
     });
 
-    // Node click → detail panel
+    // Node tap + double-tap handling
     cy.on("tap", "node", function (evt) {
         const n = evt.target;
+
+        const now = Date.now();
+        const isDoubleTap = lastTapNodeId === n.id() && (now - lastTapAt) < 340;
+        lastTapNodeId = n.id();
+        lastTapAt = now;
+
+        if (isDoubleTap) {
+            handleNodeDoubleTap(n);
+            return;
+        }
+
         setActiveNode(n.id());
         renderDetailPanel(n.data());
     });
@@ -252,6 +285,56 @@ function renderGraph(data) {
     lastGraphData = data;
     updateInsights(data);
     runLayout(true);
+    hydrateGraphPhotos(data.nodes || []);
+}
+
+function handleNodeDoubleTap(node) {
+    const type = node.data("type");
+    const id = node.id();
+
+    if (type === "user" || type === "group") {
+        showToast(`Drill-down: loading ${type} structure`, "info");
+        loadMap(type, id);
+        return;
+    }
+
+    applyFocusFilterByIds([id]);
+    setActiveNode(id);
+    renderDetailPanel(node.data());
+    cy.animate({
+        fit: { eles: node.closedNeighborhood(), padding: 80 },
+        duration: 280,
+    });
+}
+
+function getPhotoEndpointForType(type, id) {
+    if (type === "user") return `/api/photo/user/${id}`;
+    if (type === "group") return `/api/photo/group/${id}`;
+    return null;
+}
+
+function hydrateGraphPhotos(nodes) {
+    const photoCandidates = nodes
+        .filter(n => n.type === "user" || n.type === "group")
+        .slice(0, 24);
+
+    photoCandidates.forEach(n => {
+        const endpoint = getPhotoEndpointForType(n.type, n.id);
+        if (!endpoint) return;
+
+        fetch(endpoint)
+            .then(r => r.json())
+            .then(data => {
+                if (!data?.photo) return;
+                const node = cy.getElementById(n.id);
+                if (!node || !node.length) return;
+                node.data("photo", data.photo);
+                node.data("hasPhoto", 1);
+            })
+            .catch(() => {
+                // Keep default visual if photo retrieval fails.
+            });
+    });
 }
 
 function runLayout(animate = true) {
@@ -534,6 +617,7 @@ function hideDetailPanel() {
 
 function buildDetailRows(type, d) {
     const rows = [];
+    let portalUrl = "";
 
     const row = (label, value) => {
         if (value == null || value === "") return;
@@ -600,6 +684,7 @@ function buildDetailRows(type, d) {
             
             // Load photo asynchronously
             setTimeout(() => loadUserPhoto(d.id), 100);
+            portalUrl = getPortalUrl("user", d.id);
             break;
 
         case "device": {
@@ -620,6 +705,7 @@ function buildDetailRows(type, d) {
             row("Managed",           yesNo(d.isManaged));
             rowMono("Device ID",     d.deviceId);
             rowMono("Object ID",     d.id);
+            portalUrl = getPortalUrl("device", d.id);
             break;
         }
 
@@ -642,6 +728,7 @@ function buildDetailRows(type, d) {
             
             // Load photo asynchronously
             setTimeout(() => loadGroupPhoto(d.id), 100);
+            portalUrl = getPortalUrl("group", d.id);
             break;
         }
 
@@ -651,6 +738,7 @@ function buildDetailRows(type, d) {
             row("Description", escHtml(d.description));
             rowMono("App ID",    d.appId);
             rowMono("Object ID", d.id);
+            portalUrl = getPortalUrl("app", d.id);
             break;
 
         case "ca_policy": {
@@ -677,11 +765,33 @@ function buildDetailRows(type, d) {
                 row("Operator", escHtml(grant.operator));
             }
             rowMono("Object ID", d.id);
+            portalUrl = getPortalUrl("ca_policy", d.id);
             break;
         }
     }
 
+    if (d.id) {
+        rows.push(`<div class="dp-actions">${portalUrl
+            ? `<a class="dp-action-btn" href="${portalUrl}" target="_blank" rel="noopener noreferrer"><i class="fas fa-up-right-from-square"></i> Open in Entra portal</a>`
+            : ""
+        }<button class="dp-action-btn" type="button" data-copy-id="${escHtml(d.id)}" onclick="copyIdFromBtn(this)"><i class="fas fa-copy"></i> Copy object ID</button></div>`);
+    }
+
     return rows.length ? rows.join("") : `<p style="color:var(--text-muted);font-size:.82rem;">No details available</p>`;
+}
+
+function getPortalUrl(type, id) {
+    if (!id) return "";
+
+    const urls = {
+        user: `https://entra.microsoft.com/#view/Microsoft_AAD_UsersAndTenants/UserProfileMenuBlade/~/overview/userId/${id}`,
+        group: `https://entra.microsoft.com/#view/Microsoft_AAD_IAM/GroupDetailsMenuBlade/~/Overview/groupId/${id}`,
+        device: `https://entra.microsoft.com/#view/Microsoft_AAD_Devices/DeviceDetailsMenuBlade/~/Overview/objectId/${id}`,
+        app: `https://entra.microsoft.com/#view/Microsoft_AAD_IAM/StartboardApplicationsMenuBlade/~/AppAppsPreview/objectId/${id}`,
+        ca_policy: `https://entra.microsoft.com/#view/Microsoft_AAD_ConditionalAccess/ConditionalAccessBlade/~/Policies/policyId/${id}`,
+    };
+
+    return urls[type] || "";
 }
 
 // ── Photo loading helpers ──────────────────────────────────────────────────
@@ -746,6 +856,17 @@ function showToast(msg, type = "info") {
     c.appendChild(el);
     setTimeout(() => el.remove(), 4500);
 }
+
+function copyIdFromBtn(btn) {
+    const value = btn?.dataset?.copyId;
+    if (!value) return;
+
+    navigator.clipboard.writeText(value)
+        .then(() => showToast("Object ID copied", "info"))
+        .catch(() => showToast("Clipboard copy failed", "error"));
+}
+
+window.copyIdFromBtn = copyIdFromBtn;
 
 function truncate(str, max) {
     if (!str) return "";
