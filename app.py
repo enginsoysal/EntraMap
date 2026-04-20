@@ -36,7 +36,7 @@ app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 Session(app)
 
 GRAPH_BASE = "https://graph.microsoft.com/v1.0"
-APP_VERSION = "0.3.11"
+APP_VERSION = "0.3.12"
 
 CLIENT_ID     = os.getenv("CLIENT_ID", "")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET", "")
@@ -345,7 +345,7 @@ def search():
         # Strict Intune-only app search (Company Portal catalog), no Entra fallback.
         first_page = graph_get(
             "/deviceAppManagement/mobileApps"
-            "?$select=id,displayName,publisher,description,isAssigned,lastModifiedDateTime"
+            "?$select=id,displayName,publisher,description,lastModifiedDateTime"
             "&$top=100",
             token,
         )
@@ -379,7 +379,7 @@ def search():
 
         all_apps = graph_get_all(
             "/deviceAppManagement/mobileApps"
-            "?$select=id,displayName,publisher,description,isAssigned,lastModifiedDateTime"
+            "?$select=id,displayName,publisher,description,lastModifiedDateTime"
             "&$top=100",
             token,
             max_items=1200,
@@ -434,7 +434,7 @@ def search():
             {
                 "id": a["id"],
                 "label": a.get("displayName", ""),
-                "subtitle": f"{platform_label(a)} · " + (a.get("publisher", "") or ("Assigned" if a.get("isAssigned") else "Not assigned")),
+                "subtitle": f"{platform_label(a)} · " + (a.get("publisher", "") or "Intune app"),
                 "type": "app",
             }
             for a in filtered[:15]
@@ -640,7 +640,7 @@ def app_map(app_id):
 
     # Intune app (Company Portal catalog item)
     app_item = graph_get(
-        f"/deviceAppManagement/mobileApps/{app_id}?$select=id,displayName,publisher,description,isAssigned,createdDateTime,lastModifiedDateTime",
+        f"/deviceAppManagement/mobileApps/{app_id}?$select=id,displayName,publisher,description,createdDateTime,lastModifiedDateTime",
         token,
     )
     if not app_item or "error" in app_item:

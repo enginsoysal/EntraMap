@@ -1,5 +1,11 @@
 # Change Log
 
+## 0.3.12 - 2026-04-20
+
+- Bumped application version to 0.3.12
+- Removed invalid `isAssigned` field selections from Intune mobile app queries
+- Added `DeviceManagementApps.Read.All` explicitly to setup documentation requirements
+
 ## 0.3.11 - 2026-04-20
 
 - Bumped application version to 0.3.11
