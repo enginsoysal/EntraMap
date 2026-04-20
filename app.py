@@ -36,7 +36,7 @@ app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 Session(app)
 
 GRAPH_BASE = "https://graph.microsoft.com/v1.0"
-APP_VERSION = "0.3.7"
+APP_VERSION = "0.3.8"
 
 CLIENT_ID     = os.getenv("CLIENT_ID", "")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET", "")
@@ -342,68 +342,79 @@ def search():
         ])
 
     if search_type == "app":
-        # Intune/Company Portal apps first, then Entra app fallback.
-        safe_q = query.replace("'", "''")
-        intune_data = graph_get(
-            f"/deviceAppManagement/mobileApps?$filter=contains(displayName,'{safe_q}')"
-            f"&$select=id,displayName,publisher,description,isAssigned,lastModifiedDateTime&$top=25",
+        # Strict Intune-only app search (Company Portal catalog), no Entra fallback.
+        first_page = graph_get(
+            "/deviceAppManagement/mobileApps"
+            "?$select=id,displayName,publisher,description,isAssigned,@odata.type,lastModifiedDateTime"
+            "&$top=100",
             token,
         )
-        intune_items = intune_data.get("value", []) if intune_data and "value" in intune_data else []
+        if first_page and "error" in first_page:
+            return jsonify(
+                {
+                    "error": "Intune app search unavailable",
+                    "details": first_page.get("message", "Missing Intune permissions or license."),
+                }
+            ), 502
 
-        # Some tenants do not support contains() for this resource; retry with startswith().
-        if not intune_items and intune_data and "error" not in intune_data:
-            intune_data = graph_get(
-                f"/deviceAppManagement/mobileApps?$filter=startswith(displayName,'{safe_q}')"
-                f"&$select=id,displayName,publisher,description,isAssigned,lastModifiedDateTime&$top=25",
-                token,
+        all_apps = graph_get_all(
+            "/deviceAppManagement/mobileApps"
+            "?$select=id,displayName,publisher,description,isAssigned,@odata.type,lastModifiedDateTime"
+            "&$top=100",
+            token,
+            max_items=1200,
+        )
+
+        def is_supported_intune_app(a):
+            odata_type = (a.get("@odata.type") or "").lower()
+            return any(
+                t in odata_type
+                for t in [
+                    "win32lobapp",
+                    "windowsstoreapp",
+                    "windowsmicrosoftedgeapp",
+                    "windowsuniversalappx",
+                    "iosstoreapp",
+                    "ioslobapp",
+                    "managedioslobapp",
+                    "macosdmgapp",
+                    "macospkgapp",
+                    "macoslobapp",
+                    "androidstoreapp",
+                    "managedandroidlobapp",
+                    "androidmanagedstoreapp",
+                ]
             )
-            intune_items = intune_data.get("value", []) if intune_data and "value" in intune_data else []
 
-        results = [
+        def platform_label(a):
+            t = (a.get("@odata.type") or "").lower()
+            if "windows" in t or "win32" in t:
+                return "Windows"
+            if "macos" in t:
+                return "macOS"
+            if "ios" in t:
+                return "iOS/iPadOS"
+            if "android" in t:
+                return "Android"
+            return "Intune"
+
+        q = query.lower()
+        filtered = [
+            a for a in all_apps
+            if is_supported_intune_app(a) and q in (a.get("displayName", "").lower())
+        ]
+
+        filtered.sort(key=lambda a: a.get("displayName", "").lower())
+
+        return jsonify([
             {
                 "id": a["id"],
                 "label": a.get("displayName", ""),
-                "subtitle": a.get("publisher", "") or ("Assigned" if a.get("isAssigned") else "Not assigned"),
+                "subtitle": f"{platform_label(a)} · " + (a.get("publisher", "") or ("Assigned" if a.get("isAssigned") else "Not assigned")),
                 "type": "app",
             }
-            for a in intune_items
-        ]
-
-        # Fallback for tenants without Intune app permissions/license in current token.
-        if len(results) < 15:
-            sp_data = graph_get(
-                f'/servicePrincipals?$search="displayName:{query}"'
-                f"&$select=id,displayName,appId,publisherName,servicePrincipalType"
-                f"&$top=15&$count=true",
-                token,
-                extra_headers={"ConsistencyLevel": "eventual"},
-            )
-            sp_items = sp_data.get("value", []) if sp_data and "value" in sp_data else []
-            if not sp_items:
-                sp_data = graph_get(
-                    f"/servicePrincipals?$filter=startswith(displayName,'{safe_q}')"
-                    f"&$select=id,displayName,appId,publisherName,servicePrincipalType&$top=15",
-                    token,
-                )
-                sp_items = sp_data.get("value", []) if sp_data and "value" in sp_data else []
-
-            existing_ids = {r["id"] for r in results}
-            for a in sp_items:
-                if a.get("id") in existing_ids:
-                    continue
-                results.append(
-                    {
-                        "id": a["id"],
-                        "label": a.get("displayName", ""),
-                        "subtitle": (a.get("publisherName", "") or "Entra app") + " (fallback)",
-                        "type": "app",
-                    }
-                )
-                if len(results) >= 15:
-                    break
-
-        return jsonify(results[:15])
+            for a in filtered[:15]
+        ])
 
     if search_type == "ca_policy":
         safe_q = query.replace("'", "''")
@@ -605,76 +616,49 @@ def app_map(app_id):
 
     # Intune app (Company Portal catalog item)
     app_item = graph_get(
-        f"/deviceAppManagement/mobileApps/{app_id}?$select=id,displayName,publisher,description,isAssigned,createdDateTime,lastModifiedDateTime",
+        f"/deviceAppManagement/mobileApps/{app_id}?$select=id,displayName,publisher,description,isAssigned,createdDateTime,lastModifiedDateTime,@odata.type",
         token,
     )
-    if app_item and "error" not in app_item:
-        add_node({"id": app_item["id"], "label": app_item.get("displayName", "?"), "type": "app", "data": clean(app_item)})
+    if not app_item or "error" in app_item:
+        return jsonify({"error": "Intune app not found"}), 404
 
-        assignments = graph_get_all(
-            f"/deviceAppManagement/mobileApps/{app_id}/assignments?$top=200",
-            token,
-            max_items=200,
-        )
+    add_node({"id": app_item["id"], "label": app_item.get("displayName", "?"), "type": "app", "data": clean(app_item)})
 
-        for assignment in assignments:
-            target = assignment.get("target", {})
-            target_type = target.get("@odata.type", "")
-
-            if "groupAssignmentTarget" in target_type:
-                group_id = target.get("groupId")
-                if not group_id:
-                    continue
-                grp = graph_get(
-                    f"/groups/{group_id}?$select=id,displayName,description,groupTypes,securityEnabled,mailEnabled",
-                    token,
-                )
-                if grp and "error" not in grp:
-                    add_node({"id": grp["id"], "label": grp.get("displayName", "Group"), "type": "group", "data": clean(grp)})
-                    edge_label = "excluded from" if "exclusion" in target_type.lower() else "assigned to"
-                    edges.append({"source": grp["id"], "target": app_item["id"], "label": edge_label})
-                continue
-
-            if "allLicensedUsersAssignmentTarget" in target_type:
-                v_id = f"virtual_all_users::{app_item['id']}"
-                add_node({"id": v_id, "label": "All licensed users", "type": "user", "data": {"id": v_id, "displayName": "All licensed users"}})
-                edges.append({"source": v_id, "target": app_item["id"], "label": "assigned to"})
-                continue
-
-            if "allDevicesAssignmentTarget" in target_type:
-                v_id = f"virtual_all_devices::{app_item['id']}"
-                add_node({"id": v_id, "label": "All devices", "type": "device", "data": {"id": v_id, "displayName": "All devices"}})
-                edges.append({"source": v_id, "target": app_item["id"], "label": "assigned to"})
-                continue
-
-        return jsonify({"nodes": nodes, "edges": edges})
-
-    # Fallback: Entra service principal app map so app nodes never hard-fail.
-    app_sp = graph_get(
-        f"/servicePrincipals/{app_id}?$select=id,displayName,appId,description,servicePrincipalType,publisherName",
-        token,
-    )
-    if not app_sp or "error" in app_sp:
-        return jsonify({"error": "App not found in Intune or Entra"}), 404
-
-    add_node({"id": app_sp["id"], "label": app_sp.get("displayName", "?"), "type": "app", "data": clean(app_sp)})
-
-    for principal in graph_get_all(
-        f"/servicePrincipals/{app_id}/appRoleAssignedTo?$select=id,principalId,principalDisplayName,principalType",
+    assignments = graph_get_all(
+        f"/deviceAppManagement/mobileApps/{app_id}/assignments?$top=200",
         token,
         max_items=200,
-    ):
-        principal_id = principal.get("principalId")
-        principal_type = (principal.get("principalType") or "").lower()
-        if not principal_id:
+    )
+
+    for assignment in assignments:
+        target = assignment.get("target", {})
+        target_type = target.get("@odata.type", "")
+
+        if "groupAssignmentTarget" in target_type:
+            group_id = target.get("groupId")
+            if not group_id:
+                continue
+            grp = graph_get(
+                f"/groups/{group_id}?$select=id,displayName,description,groupTypes,securityEnabled,mailEnabled",
+                token,
+            )
+            if grp and "error" not in grp:
+                add_node({"id": grp["id"], "label": grp.get("displayName", "Group"), "type": "group", "data": clean(grp)})
+                edge_label = "excluded from" if "exclusion" in target_type.lower() else "assigned to"
+                edges.append({"source": grp["id"], "target": app_item["id"], "label": edge_label})
             continue
-        principal_label = principal.get("principalDisplayName") or principal_id
-        if principal_type == "user":
-            add_node({"id": principal_id, "label": principal_label, "type": "user", "data": {"id": principal_id, "displayName": principal_label}})
-            edges.append({"source": principal_id, "target": app_sp["id"], "label": "assigned to"})
-        elif principal_type == "group":
-            add_node({"id": principal_id, "label": principal_label, "type": "group", "data": {"id": principal_id, "displayName": principal_label}})
-            edges.append({"source": principal_id, "target": app_sp["id"], "label": "assigned to"})
+
+        if "allLicensedUsersAssignmentTarget" in target_type:
+            v_id = f"virtual_all_users::{app_item['id']}"
+            add_node({"id": v_id, "label": "All licensed users", "type": "user", "data": {"id": v_id, "displayName": "All licensed users"}})
+            edges.append({"source": v_id, "target": app_item["id"], "label": "assigned to"})
+            continue
+
+        if "allDevicesAssignmentTarget" in target_type:
+            v_id = f"virtual_all_devices::{app_item['id']}"
+            add_node({"id": v_id, "label": "All devices", "type": "device", "data": {"id": v_id, "displayName": "All devices"}})
+            edges.append({"source": v_id, "target": app_item["id"], "label": "assigned to"})
+            continue
 
     return jsonify({"nodes": nodes, "edges": edges})
 
@@ -811,24 +795,12 @@ def get_details(object_type, object_id):
         "user":      f"/users/{object_id}",
         "group":     f"/groups/{object_id}",
         "device":    f"/devices/{object_id}",
-        "app":       None,
+        "app":       f"/deviceAppManagement/mobileApps/{object_id}",
         "ca_policy": f"/identity/conditionalAccessPolicies/{object_id}",
     }
     ep = endpoints.get(object_type)
     if not ep:
-        if object_type != "app":
-            return jsonify({"error": "Invalid object type"}), 400
-
-    if object_type == "app":
-        # Intune first, then Entra fallback.
-        result = graph_get(f"/deviceAppManagement/mobileApps/{object_id}", token)
-        if not result or "error" in result:
-            result = graph_get(f"/servicePrincipals/{object_id}", token)
-        if not result:
-            return jsonify({"error": "Object not found"}), 404
-        if "error" in result:
-            return jsonify(result), 502
-        return jsonify(result)
+        return jsonify({"error": "Invalid object type"}), 400
 
     result = graph_get(ep, token)
     if not result:

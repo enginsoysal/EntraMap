@@ -1,5 +1,12 @@
 # Change Log
 
+## 0.3.8 - 2026-04-20
+
+- Bumped application version to 0.3.8
+- Removed Entra app fallback from App tab so only Intune mobile apps are shown
+- App search now filters to supported endpoint app platforms: Windows, macOS, iOS/iPadOS, Android
+- App map/details are now Intune-only for consistent behavior
+
 ## 0.3.7 - 2026-04-20
 
 - Bumped application version to 0.3.7
