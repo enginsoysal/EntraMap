@@ -236,6 +236,102 @@ body {
 
 .sr-empty { text-align: center; color: var(--text-muted); font-size: 0.82rem; padding: 14px 0; }
 
+/* ---- Insights panel -------------------------------------- */
+#insights-panel {
+    flex-shrink: 0;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 12px 12px;
+    background: linear-gradient(180deg, rgba(59,130,246,.05), rgba(59,130,246,0));
+}
+
+.insights-head {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 0.76rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #9fb6e7;
+    margin-bottom: 10px;
+    font-weight: 700;
+}
+
+.insight-kpis {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
+    margin-bottom: 8px;
+}
+
+.insight-kpi {
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 6px 8px;
+    background: rgba(11,13,22,.55);
+}
+
+.insight-kpi-label {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.insight-kpi-value {
+    font-size: 0.92rem;
+    color: var(--text-primary);
+    font-weight: 700;
+    line-height: 1.25;
+}
+
+.insight-os {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 9px;
+}
+
+.os-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border: 1px solid var(--border-light);
+    border-radius: 999px;
+    padding: 2px 8px;
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    background: rgba(11,13,22,.52);
+}
+
+.insight-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+}
+
+.insight-btn {
+    width: 100%;
+    border: 1px solid var(--border-light);
+    border-radius: 7px;
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    text-align: left;
+    padding: 6px 8px;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.insight-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    border-color: rgba(59,130,246,.45);
+}
+
+.insight-btn.reset {
+    color: #93c5fd;
+}
+
 /* ---- Divider --------------------------------------------- */
 #detail-divider {
     height: 1px;

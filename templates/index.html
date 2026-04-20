@@ -63,6 +63,29 @@
             <div id="search-results"></div>
         </div>
 
+        <!-- Insights panel -->
+        <div id="insights-panel" class="d-none">
+            <div class="insights-head">
+                <i class="fas fa-chart-line"></i>
+                <span>Operational insights</span>
+            </div>
+
+            <div id="insight-kpis" class="insight-kpis"></div>
+            <div id="insight-os" class="insight-os"></div>
+
+            <div class="insight-actions">
+                <button id="insight-unmanaged" class="insight-btn" type="button">
+                    <i class="fas fa-triangle-exclamation"></i> Unmanaged devices
+                </button>
+                <button id="insight-noncompliant" class="insight-btn" type="button">
+                    <i class="fas fa-shield-halved"></i> Non-compliant devices
+                </button>
+                <button id="insight-reset" class="insight-btn reset" type="button">
+                    <i class="fas fa-rotate-left"></i> Reset focus
+                </button>
+            </div>
+        </div>
+
         <!-- Divider shown only when detail is open -->
         <div id="detail-divider" class="d-none"></div>
 
@@ -104,6 +127,9 @@
                 </button>
                 <button id="btn-reset-layout" class="tb-btn" title="Recalculate layout">
                     <i class="fas fa-redo"></i>
+                </button>
+                <button id="btn-export-json" class="tb-btn" title="Export current graph as JSON">
+                    <i class="fas fa-file-export"></i>
                 </button>
             </div>
         </div>

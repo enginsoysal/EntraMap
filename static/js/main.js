@@ -40,6 +40,7 @@ let cy          = null;
 let searchType  = "user";
 let searchTimer = null;
 let activeNodeId = null;
+let lastGraphData = null;
 
 // ── Cytoscape initialisation ──────────────────────────────────────────────
 
@@ -156,6 +157,18 @@ function buildCyStyle() {
             selector: "edge.highlighted",
             style: { "line-color": "#3d4a7a", "target-arrow-color": "#3d4a7a", "opacity": 1 },
         },
+        {
+            selector: "node.faded",
+            style: {
+                "opacity": 0.16,
+            },
+        },
+        {
+            selector: "edge.faded",
+            style: {
+                "opacity": 0.07,
+            },
+        },
     ];
 }
 
@@ -209,12 +222,12 @@ function renderGraph(data) {
     const elements = [];
 
     data.nodes.forEach(node => {
-        const meta = TYPE_META[node.type] || {};
+        const prefixedLabel = `${getNodeIcon(node)} ${truncate(node.label, 22)}`;
         elements.push({
             group: "nodes",
             data: {
                 id:        node.id,
-                label:     truncate(node.label, 22),
+                label:     prefixedLabel,
                 fullLabel: node.label,
                 type:      node.type,
                 // spread all detail fields for the detail panel
@@ -236,6 +249,8 @@ function renderGraph(data) {
     });
 
     cy.add(elements);
+    lastGraphData = data;
+    updateInsights(data);
     runLayout(true);
 }
 
@@ -276,6 +291,140 @@ function setActiveNode(nodeId) {
 
 function clearHighlight() {
     cy.elements().removeClass("highlighted");
+}
+
+function clearFocusFilter() {
+    if (!cy) return;
+    cy.elements().removeClass("faded");
+}
+
+function applyFocusFilterByIds(nodeIds) {
+    if (!cy || !nodeIds?.length) {
+        showToast("No matching nodes for this filter", "error");
+        return;
+    }
+
+    let keep = cy.collection();
+    nodeIds.forEach(id => {
+        const node = cy.getElementById(id);
+        if (node && node.length) keep = keep.union(node);
+    });
+
+    if (!keep.length) {
+        showToast("No matching nodes visible in the current graph", "error");
+        return;
+    }
+
+    // Keep one hop context so relationships remain understandable.
+    keep = keep.union(keep.incomers("node")).union(keep.outgoers("node"));
+    const keepEdges = keep.connectedEdges();
+
+    cy.nodes().addClass("faded");
+    cy.edges().addClass("faded");
+    keep.removeClass("faded");
+    keepEdges.removeClass("faded");
+
+    cy.fit(keep, 60);
+}
+
+function getNodeIcon(node) {
+    if (!node) return "•";
+
+    if (node.type === "user") return "👤";
+    if (node.type === "group") return "👥";
+    if (node.type === "app") return "🧩";
+    if (node.type === "ca_policy") return "🛡";
+
+    if (node.type === "device") {
+        const os = (node.data?.operatingSystem || "").toLowerCase();
+        if (os.includes("windows")) return "🪟";
+        if (os.includes("android")) return "🤖";
+        if (os.includes("ios")) return "🍎";
+        if (os.includes("macos") || os.includes("mac")) return "🍎";
+        if (os.includes("linux")) return "🐧";
+        if (os.includes("chrome")) return "🌐";
+        return "💻";
+    }
+
+    return "•";
+}
+
+function updateInsights(data) {
+    const panel = document.getElementById("insights-panel");
+    const kpiWrap = document.getElementById("insight-kpis");
+    const osWrap = document.getElementById("insight-os");
+    if (!panel || !kpiWrap || !osWrap) return;
+
+    const nodes = data?.nodes || [];
+    const devices = nodes.filter(n => n.type === "device");
+    const unmanaged = devices.filter(n => n.data?.isManaged === false);
+    const nonCompliant = devices.filter(n => n.data?.isCompliant === false);
+    const policies = nodes.filter(n => n.type === "ca_policy");
+
+    const kpis = [
+        { label: "Nodes", value: nodes.length },
+        { label: "Devices", value: devices.length },
+        { label: "Unmanaged", value: unmanaged.length },
+        { label: "Non-compliant", value: nonCompliant.length },
+        { label: "CA policies", value: policies.length },
+        { label: "Apps", value: nodes.filter(n => n.type === "app").length },
+    ];
+
+    kpiWrap.innerHTML = kpis.map(k => `
+        <div class="insight-kpi">
+            <div class="insight-kpi-label">${k.label}</div>
+            <div class="insight-kpi-value">${k.value}</div>
+        </div>
+    `).join("");
+
+    const osStats = {};
+    devices.forEach(d => {
+        const osIcon = getOSIcon(d.data?.operatingSystem);
+        const key = osIcon?.label || "Other";
+        if (!osStats[key]) osStats[key] = { count: 0, icon: osIcon?.icon || "fa-solid fa-desktop", color: osIcon?.color || "#7a8ab0" };
+        osStats[key].count += 1;
+    });
+
+    const osChips = Object.entries(osStats)
+        .sort((a, b) => b[1].count - a[1].count)
+        .map(([label, meta]) => `
+            <span class="os-chip">
+                <i class="${meta.icon}" style="color:${meta.color}"></i>
+                ${escHtml(label)}: ${meta.count}
+            </span>
+        `)
+        .join("");
+
+    osWrap.innerHTML = osChips || `<span class="os-chip"><i class="fa-solid fa-desktop"></i> No device data</span>`;
+    panel.classList.remove("d-none");
+}
+
+function exportCurrentGraph() {
+    if (!lastGraphData) {
+        showToast("No graph data to export yet", "error");
+        return;
+    }
+
+    const payload = {
+        exportedAt: new Date().toISOString(),
+        summary: {
+            nodes: lastGraphData.nodes?.length || 0,
+            edges: lastGraphData.edges?.length || 0,
+        },
+        graph: lastGraphData,
+    };
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `entramap-export-${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+
+    showToast("Graph exported as JSON", "info");
 }
 
 // ── Search ────────────────────────────────────────────────────────────────
@@ -620,6 +769,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Toolbar
     document.getElementById("btn-fit").addEventListener("click", () => cy.fit(undefined, 40));
     document.getElementById("btn-reset-layout").addEventListener("click", () => runLayout(true));
+    document.getElementById("btn-export-json").addEventListener("click", exportCurrentGraph);
 
     // Detail close
     document.getElementById("detail-close").addEventListener("click", hideDetailPanel);
@@ -658,4 +808,26 @@ document.addEventListener("DOMContentLoaded", () => {
             if (d.status !== "ok") showToast(d.message, "error");
         })
         .catch(() => {}); // ignore if backend is starting up
+
+    // Insight actions
+    document.getElementById("insight-unmanaged").addEventListener("click", () => {
+        if (!lastGraphData) return;
+        const ids = (lastGraphData.nodes || [])
+            .filter(n => n.type === "device" && n.data?.isManaged === false)
+            .map(n => n.id);
+        applyFocusFilterByIds(ids);
+    });
+
+    document.getElementById("insight-noncompliant").addEventListener("click", () => {
+        if (!lastGraphData) return;
+        const ids = (lastGraphData.nodes || [])
+            .filter(n => n.type === "device" && n.data?.isCompliant === false)
+            .map(n => n.id);
+        applyFocusFilterByIds(ids);
+    });
+
+    document.getElementById("insight-reset").addEventListener("click", () => {
+        clearFocusFilter();
+        if (cy && cy.nodes().length) cy.fit(undefined, 50);
+    });
 });
