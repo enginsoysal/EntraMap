@@ -155,6 +155,7 @@ def login():
 @app.route("/auth/signin")
 def auth_signin():
     use_popup = request.args.get("popup") == "1"
+    force_consent = bool(session.pop("require_consent", False))
     session["auth_popup"] = use_popup
     session["state"] = str(uuid.uuid4())
     session.modified = True  # Explicitly mark session as modified
@@ -163,7 +164,7 @@ def auth_signin():
         SCOPES,
         state=session["state"],
         redirect_uri=redirect_uri,
-        prompt="select_account",
+        prompt="consent" if force_consent else "select_account",
     )
     return redirect(auth_url)
 
@@ -225,6 +226,8 @@ def auth_signout():
 def auth_disconnect():
     """Hard disconnect: wipe token cache, session, all tenant traces, then return to sign-in."""
     session.clear()
+    # Force re-consent on next sign-in so tenant permissions are requested again
+    session["require_consent"] = True
     return redirect(url_for("index"))
 
 
