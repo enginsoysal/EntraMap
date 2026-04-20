@@ -36,7 +36,7 @@ app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 Session(app)
 
 GRAPH_BASE = "https://graph.microsoft.com/v1.0"
-APP_VERSION = "0.3.10"
+APP_VERSION = "0.3.11"
 
 CLIENT_ID     = os.getenv("CLIENT_ID", "")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET", "")
@@ -350,8 +350,9 @@ def search():
             token,
         )
         if first_page and "error" in first_page:
+            error_code = first_page.get("error")
             message = (first_page.get("message") or "").lower()
-            needs_consent = any(
+            needs_consent = (error_code in (401, 403)) or any(
                 k in message for k in [
                     "insufficient privileges",
                     "authorization_requestdenied",
@@ -372,7 +373,7 @@ def search():
             return jsonify(
                 {
                     "error": "Intune app search unavailable",
-                    "details": first_page.get("message", "Missing Intune permissions or Intune licensing."),
+                    "details": first_page.get("message", "Missing Intune permissions, Intune role assignment, or Intune licensing."),
                 }
             ), 502
 

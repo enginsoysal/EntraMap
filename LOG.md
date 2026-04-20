@@ -1,5 +1,11 @@
 # Change Log
 
+## 0.3.11 - 2026-04-20
+
+- Bumped application version to 0.3.11
+- Intune app search now treats HTTP 401/403 responses as consent/permissions issues
+- Search UI now surfaces detailed backend error text instead of only a generic unavailable label
+
 ## 0.3.10 - 2026-04-20
 
 - Bumped application version to 0.3.10

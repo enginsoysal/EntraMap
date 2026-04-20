@@ -4,7 +4,7 @@
 
 "use strict";
 
-const APP_CONTEXT = window.APP_CONTEXT || { signedIn: false, version: "0.3.10" };
+const APP_CONTEXT = window.APP_CONTEXT || { signedIn: false, version: "0.3.11" };
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -581,7 +581,10 @@ async function performSearch(query) {
             renderSearchError("Bevestig permissies in het popupvenster en probeer daarna opnieuw.");
             return;
         }
-        if (!resp.ok || data.error) { renderSearchError(data.error || "Search request failed"); return; }
+        if (!resp.ok || data.error) {
+            renderSearchError(data.details || data.error || "Search request failed");
+            return;
+        }
         renderSearchResults(data);
     } catch (err) {
         renderSearchError("Network error: " + err.message);
