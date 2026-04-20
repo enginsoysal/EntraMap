@@ -169,7 +169,7 @@
 
                 <section class="auth-signin-card">
                     <p class="auth-signin-title">Secure Microsoft Sign-in</p>
-                    <a href="/auth/signin?popup=1" class="btn-auth-microsoft js-ms-signin" data-popup-inline="1" onclick="return window.openEntraMapAuthPopup(this.href)">
+                    <a href="/auth/signin?popup=1" class="btn-auth-microsoft js-ms-signin" data-popup-inline="1" onclick="const w=560,h=720,l=Math.max(0,Math.round((screen.width-w)/2)),t=Math.max(0,Math.round((screen.height-h)/2)),f=['width='+w,'height='+h,'left='+l,'top='+t,'popup=yes','resizable=yes','scrollbars=yes','toolbar=no','menubar=no','status=no','location=yes'].join(','); const p=window.open('about:blank','entramapSignIn',f); if(!p){ alert('Please allow popups for EntraMap sign-in.'); return false; } try{ p.document.title='EntraMap Sign-in'; p.document.body.innerHTML='Opening Microsoft sign-in...'; }catch(e){} p.location.replace(this.href); p.focus(); return false;">
                         <svg class="ms-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 21 21">
                             <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
                             <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
