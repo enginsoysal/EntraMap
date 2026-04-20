@@ -1,5 +1,12 @@
 # Change Log
 
+## 0.3.3 - 2026-04-20
+
+- Bumped application version to 0.3.3
+- Added Disconnect tenant button in a dedicated sub-bar below the header
+- Disconnect wipes server session, token cache, localStorage, and sessionStorage before returning to sign-in
+- Moved GitHub and LinkedIn footer links inside the auth popup for signed-out visibility
+
 ## 0.3.2 - 2026-04-20
 
 - Bumped application version to 0.3.2
