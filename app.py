@@ -11,6 +11,7 @@ from flask import (
     Flask, render_template, jsonify, request,
     redirect, session, url_for,
 )
+from flask_session import Session
 from msal import ConfidentialClientApplication, SerializableTokenCache
 from dotenv import load_dotenv
 
@@ -20,13 +21,21 @@ load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", os.urandom(32))
+app.config["SESSION_TYPE"] = "filesystem"
+app.config["SESSION_FILE_DIR"] = os.path.join(os.getcwd(), "flask_session")
+app.config["SESSION_PERMANENT"] = False
+app.config["SESSION_USE_SIGNER"] = True
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+Session(app)
 
 GRAPH_BASE = "https://graph.microsoft.com/v1.0"
-APP_VERSION = "0.0.3"
+APP_VERSION = "0.1.0"
 
 CLIENT_ID     = os.getenv("CLIENT_ID", "")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET", "")
 REDIRECT_PATH = "/auth/callback"
+REDIRECT_URI  = os.getenv("REDIRECT_URI", "").strip()
 
 SCOPES = [
     "User.Read",
@@ -71,6 +80,11 @@ def _get_token_from_cache():
     if result and "access_token" in result:
         return result["access_token"]
     return None
+
+
+def _redirect_uri():
+    # Prefer an explicit configured callback in hosted environments.
+    return REDIRECT_URI or url_for("auth_callback", _external=True)
 
 
 # ── Auth decorator ────────────────────────────────────────────────────────────
@@ -131,7 +145,7 @@ def login():
 @app.route("/auth/signin")
 def auth_signin():
     session["state"] = str(uuid.uuid4())
-    redirect_uri = url_for("auth_callback", _external=True)
+    redirect_uri = _redirect_uri()
     auth_url = _msal_app().get_authorization_request_url(
         SCOPES,
         state=session["state"],
@@ -154,7 +168,7 @@ def auth_callback():
     if not code:
         return redirect(url_for("login", error="No authorization code was received."))
 
-    redirect_uri = url_for("auth_callback", _external=True)
+    redirect_uri = _redirect_uri()
     cache = _load_cache()
     msal = _msal_app(cache)
     result = msal.acquire_token_by_authorization_code(

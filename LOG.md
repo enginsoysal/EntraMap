@@ -1,5 +1,12 @@
 # Change Log
 
+## 0.1.0 - 2026-04-20
+
+- Bumped application version to 0.1.0
+- Added server-side session storage with Flask-Session to avoid OAuth state mismatch
+- Added explicit REDIRECT_URI support with fallback behavior
+- Updated README.md, LOG.md, and FILES.md for release consistency
+
 ## 0.0.3 - 2026-04-20
 
 - Added README.md with setup, deployment, and Entra app registration guidance
