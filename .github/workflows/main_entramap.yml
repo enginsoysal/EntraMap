@@ -59,6 +59,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: python-app
+          path: ./release
       
       - name: Login to Azure
         uses: azure/login@v2
@@ -73,4 +74,5 @@ jobs:
         with:
           app-name: 'entramap'
           slot-name: 'Production'
+          package: ./release
           

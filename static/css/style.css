@@ -1031,6 +1031,27 @@ body {
     color: #93c5fd;
 }
 
+.auth-modal-footer {
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(148,163,184,.18);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 0.8rem;
+}
+
+.auth-modal-footer a {
+    color: #9fb3d9;
+    text-decoration: none;
+    transition: color 0.15s;
+}
+
+.auth-modal-footer a:hover {
+    color: #cfe0ff;
+}
+
 @media (max-width: 1180px) {
     #drilldown-hint {
         display: none;
