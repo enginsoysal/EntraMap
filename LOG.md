@@ -1,5 +1,14 @@
 # Change Log
 
+## 0.3.15 - 2026-04-21
+
+- Bumped application version to 0.3.15
+- Added stronger session defaults: explicit TTL, non-refreshing session lifetime, and hardened cookie settings
+- Added optional Redis-backed session storage via `SESSION_TYPE=redis` and `REDIS_URL`
+- Added optional token cache encryption at rest via `TOKEN_CACHE_ENCRYPTION_KEY`
+- Added response hardening headers (`X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`)
+- Added no-store cache headers for non-static routes
+
 ## 0.3.14 - 2026-04-20
 
 - Bumped application version to 0.3.14

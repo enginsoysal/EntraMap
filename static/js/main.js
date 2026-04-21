@@ -1,6 +1,6 @@
 "use strict";
 
-const APP_CONTEXT = window.APP_CONTEXT || { signedIn: false, version: "0.3.14" };
+const APP_CONTEXT = window.APP_CONTEXT || { signedIn: false, version: "0.3.15" };
 
 const TYPE_META = {
     user: { label: "User", icon: "fa-user" },

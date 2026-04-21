@@ -1,6 +1,6 @@
 # EntraMap
 
-Version 0.3.14
+Version 0.3.15
 
 EntraMap is a Flask web application that signs users in with Microsoft Entra ID and visualizes tenant relationships as an interactive graph. It helps you explore users, devices, groups, applications, and Conditional Access policies from a single screen.
 
@@ -28,6 +28,15 @@ EntraMap is a Flask web application that signs users in with Microsoft Entra ID 
 - Bumped the project version to 0.3.14
 - Forced the Sign in button itself to open Microsoft auth in a popup via inline popup-open logic
 - Kept the popup auth completion flow that refreshes the main window after successful sign-in
+
+## Version 0.3.15 Changes
+
+- Bumped the project version to 0.3.15
+- Added stronger server-side session defaults with explicit TTL and secure cookie controls
+- Added optional Redis session backend support (`SESSION_TYPE=redis`, `REDIS_URL=...`) for production deployments
+- Added optional token cache encryption at rest via `TOKEN_CACHE_ENCRYPTION_KEY`
+- Added response hardening headers (`X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`)
+- Added no-store cache headers for non-static routes to reduce risk of cached sensitive responses
 
 ## Version 0.3.13 Changes
 
@@ -223,6 +232,16 @@ If you deploy on Windows App Service and prefer the built-in Python startup beha
 - Rotate client secrets regularly
 - Use a strong FLASK_SECRET_KEY in production
 - Review delegated permissions carefully before production rollout
+
+### Production Hardening
+
+For production usage, configure these additional safeguards:
+
+- Set `SESSION_COOKIE_SECURE=true` when running behind HTTPS
+- Keep session lifetime short with `SESSION_TTL_MINUTES` (for example 30-60)
+- Prefer Redis-backed sessions over local filesystem (`SESSION_TYPE=redis`, `REDIS_URL`)
+- Enable token cache encryption at rest with `TOKEN_CACHE_ENCRYPTION_KEY`
+- Restrict operational access to host filesystem and deployment tooling (least privilege)
 
 ## Project Structure
 

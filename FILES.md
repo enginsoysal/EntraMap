@@ -1,6 +1,6 @@
 # Files Reference
 
-Version 0.3.14
+Version 0.3.15
 
 This file describes the purpose of each file in the repository.
 
@@ -13,6 +13,8 @@ Responsibilities:
 - Handles Microsoft sign-in and sign-out routes
 - Performs immediate local app sign-out without Microsoft account-picker interaction
 - Stores the MSAL token cache in the Flask session
+- Supports optional token-cache encryption before session persistence
+- Supports optional Redis-backed server session storage for production hardening
 - Calls Microsoft Graph
 - Builds graph data for users, groups, devices, Intune apps, and CA policies
 - Exposes API endpoints used by the frontend

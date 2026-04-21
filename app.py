@@ -8,6 +8,8 @@ import uuid
 import base64
 import tempfile
 import requests
+from datetime import timedelta
+import importlib
 from functools import wraps
 from flask import (
     Flask, render_template, jsonify, request,
@@ -17,31 +19,72 @@ from flask_session import Session
 from msal import ConfidentialClientApplication, SerializableTokenCache
 from dotenv import load_dotenv
 
+try:
+    from cryptography.fernet import Fernet, InvalidToken
+except Exception:
+    Fernet = None
+    InvalidToken = Exception
+
 load_dotenv()
+
+
+def _env_bool(name, default=False):
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return str(raw).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _env_int(name, default):
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
+CLIENT_ID = os.getenv("CLIENT_ID", "")
+CLIENT_SECRET = os.getenv("CLIENT_SECRET", "")
+REDIRECT_PATH = "/auth/callback"
+REDIRECT_URI = os.getenv("REDIRECT_URI", "").strip()
 
 # ── App setup ─────────────────────────────────────────────────────────────────
 
 app = Flask(__name__)
 app.secret_key = os.getenv("FLASK_SECRET_KEY", os.urandom(32))
-app.config["SESSION_TYPE"] = "filesystem"
-# Azure App Service may run app code from a read-only location.
-# Store server-side session files in a guaranteed writable temp path.
-session_dir = os.getenv("SESSION_FILE_DIR", os.path.join(tempfile.gettempdir(), "entramap_flask_session"))
-os.makedirs(session_dir, exist_ok=True)
-app.config["SESSION_FILE_DIR"] = session_dir
-app.config["SESSION_PERMANENT"] = False
+app.config["SESSION_TYPE"] = os.getenv("SESSION_TYPE", "filesystem").strip().lower()
+
+if app.config["SESSION_TYPE"] == "redis":
+    redis_url = os.getenv("REDIS_URL", "").strip()
+    if not redis_url:
+        raise RuntimeError("SESSION_TYPE=redis requires REDIS_URL to be configured")
+    try:
+        redis_lib = importlib.import_module("redis")
+    except Exception as exc:
+        raise RuntimeError("SESSION_TYPE=redis requires redis package to be installed")
+    app.config["SESSION_REDIS"] = redis_lib.from_url(redis_url)
+else:
+    app.config["SESSION_TYPE"] = "filesystem"
+    # Azure App Service may run app code from a read-only location.
+    # Store server-side session files in a guaranteed writable temp path.
+    session_dir = os.getenv("SESSION_FILE_DIR", os.path.join(tempfile.gettempdir(), "entramap_flask_session"))
+    os.makedirs(session_dir, exist_ok=True)
+    app.config["SESSION_FILE_DIR"] = session_dir
+
+app.config["SESSION_PERMANENT"] = True
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(minutes=_env_int("SESSION_TTL_MINUTES", 60))
+app.config["SESSION_REFRESH_EACH_REQUEST"] = False
 app.config["SESSION_USE_SIGNER"] = True
+app.config["SESSION_COOKIE_NAME"] = os.getenv("SESSION_COOKIE_NAME", "entramap_session")
 app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SECURE"] = _env_bool("SESSION_COOKIE_SECURE", REDIRECT_URI.startswith("https://"))
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 Session(app)
 
 GRAPH_BASE = "https://graph.microsoft.com/v1.0"
-APP_VERSION = "0.3.14"
-
-CLIENT_ID     = os.getenv("CLIENT_ID", "")
-CLIENT_SECRET = os.getenv("CLIENT_SECRET", "")
-REDIRECT_PATH = "/auth/callback"
-REDIRECT_URI  = os.getenv("REDIRECT_URI", "").strip()
+APP_VERSION = "0.3.15"
 
 SCOPES = [
     "User.Read",
@@ -55,6 +98,31 @@ SCOPES = [
 ]
 
 
+def _get_cache_cipher():
+    key = os.getenv("TOKEN_CACHE_ENCRYPTION_KEY", "").strip()
+    if not key:
+        return None
+    if Fernet is None:
+        raise RuntimeError("TOKEN_CACHE_ENCRYPTION_KEY is set but cryptography package is not installed")
+    return Fernet(key.encode("utf-8"))
+
+
+def _encrypt_cache_blob(serialized_cache):
+    cipher = _get_cache_cipher()
+    if not cipher:
+        return serialized_cache
+    token = cipher.encrypt(serialized_cache.encode("utf-8"))
+    return token.decode("utf-8")
+
+
+def _decrypt_cache_blob(raw_cache_blob):
+    cipher = _get_cache_cipher()
+    if not cipher:
+        return raw_cache_blob
+    plain = cipher.decrypt(raw_cache_blob.encode("utf-8"))
+    return plain.decode("utf-8")
+
+
 def _msal_app(cache=None):
     return ConfidentialClientApplication(
         CLIENT_ID,
@@ -66,14 +134,20 @@ def _msal_app(cache=None):
 
 def _load_cache():
     cache = SerializableTokenCache()
-    if session.get("token_cache"):
-        cache.deserialize(session["token_cache"])
+    raw_cache_blob = session.get("token_cache")
+    if raw_cache_blob:
+        try:
+            cache.deserialize(_decrypt_cache_blob(raw_cache_blob))
+        except InvalidToken:
+            session.pop("token_cache", None)
+        except Exception:
+            session.pop("token_cache", None)
     return cache
 
 
 def _save_cache(cache):
     if cache.has_state_changed:
-        session["token_cache"] = cache.serialize()
+        session["token_cache"] = _encrypt_cache_blob(cache.serialize())
 
 
 def _get_token_from_cache():
@@ -92,6 +166,21 @@ def _get_token_from_cache():
 def _redirect_uri():
     # Prefer an explicit configured callback in hosted environments.
     return REDIRECT_URI or url_for("auth_callback", _external=True)
+
+
+@app.after_request
+def _set_security_headers(resp):
+    resp.headers.setdefault("X-Frame-Options", "DENY")
+    resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+    resp.headers.setdefault("Referrer-Policy", "no-referrer")
+    resp.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+
+    # Prevent caching of HTML/API responses containing session-bound data.
+    if not request.path.startswith("/static/"):
+        resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        resp.headers["Pragma"] = "no-cache"
+        resp.headers["Expires"] = "0"
+    return resp
 
 
 # ── Auth decorator ────────────────────────────────────────────────────────────
@@ -252,6 +341,13 @@ def auth_callback():
         return redirect(url_for("index", login_error=message))
 
     claims = result.get("id_token_claims", {})
+    token_cache_blob = session.get("token_cache")
+    require_consent = session.get("require_consent")
+    session.clear()
+    if token_cache_blob:
+        session["token_cache"] = token_cache_blob
+    if require_consent:
+        session["require_consent"] = require_consent
     session["user"] = {
         "name": claims.get("name", "Unknown"),
         "upn":  claims.get("preferred_username", ""),
@@ -950,4 +1046,4 @@ def me():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    app.run(debug=_env_bool("FLASK_DEBUG", False), port=_env_int("PORT", 5000))
