@@ -219,9 +219,14 @@ def login_required(f):
 @app.route("/")
 def index():
     user = SessionService.get_user(session)
+    base_url = request.url_root.rstrip("/")
+    page_url = f"{base_url}{request.path}"
+    preview_image_url = f"{base_url}/static/brand/social-preview.png"
     return render_template(
         "index.html",
         changelog_html=render_changelog_html(),
+        page_url=page_url,
+        preview_image_url=preview_image_url,
         user=user,
         signed_in=bool(user),
         login_error=request.args.get("login_error", ""),
