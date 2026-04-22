@@ -221,7 +221,7 @@ def index():
     user = SessionService.get_user(session)
     base_url = request.url_root.rstrip("/")
     page_url = f"{base_url}{request.path}"
-    preview_image_url = f"{base_url}/static/brand/social-preview.png"
+    preview_image_url = f"{base_url}/static/brand/backEnd.png"
     return render_template(
         "index.html",
         changelog_html=render_changelog_html(),
