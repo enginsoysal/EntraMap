@@ -1,6 +1,6 @@
 "use strict";
 
-const APP_CONTEXT = window.APP_CONTEXT || { signedIn: false, version: "0.3.15" };
+const APP_CONTEXT = window.APP_CONTEXT || { signedIn: false, version: "0.3.16" };
 
 const TYPE_META = {
     user: { label: "User", icon: "fa-user" },
@@ -579,6 +579,11 @@ async function loadMap(objectType, objectId) {
             return;
         }
         renderGraph(data);
+
+        // App exists, but Intune returned no assignment links for this object.
+        if (objectType === "app" && Array.isArray(data.nodes) && data.nodes.length > 0 && (!data.edges || data.edges.length === 0)) {
+            showToast("App found, but no assignments were returned from Intune.", "info");
+        }
     } catch (error) {
         showToast(`Network error: ${error.message}`, "error");
         showEmptyState(true);

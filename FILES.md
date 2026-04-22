@@ -1,6 +1,6 @@
 # Files Reference
 
-Version 0.3.15
+Version 0.3.16
 
 This file describes the purpose of each file in the repository.
 
@@ -10,15 +10,10 @@ This file describes the purpose of each file in the repository.
 Main Flask application.
 
 Responsibilities:
-- Handles Microsoft sign-in and sign-out routes
-- Performs immediate local app sign-out without Microsoft account-picker interaction
-- Stores the MSAL token cache in the Flask session
-- Supports optional token-cache encryption before session persistence
-- Supports optional Redis-backed server session storage for production hardening
-- Calls Microsoft Graph
-- Builds graph data for users, groups, devices, Intune apps, and CA policies
-- Exposes API endpoints used by the frontend
-- Defines the application version
+- Initializes Flask app and session configuration
+- Registers authentication, search, details, and map routes
+- Delegates business logic to engines and services
+- Applies response security headers and compression
 
 ### requirements.txt
 Python dependency list used for local installs and Azure deployment.
@@ -107,6 +102,15 @@ Purpose:
 - Stores production or local secrets and app configuration
 
 ## Folders
+
+### config/
+Configuration layer with environment parsing and app settings.
+
+### services/
+Shared low-level services (Graph communication, session/cache helpers, photos).
+
+### engines/
+Independent feature engines (auth, search types, map types).
 
 ### templates/
 Jinja2 templates rendered by Flask.

@@ -1,5 +1,14 @@
 # Change Log
 
+## 0.3.16 - 2026-04-22
+
+- Bumped application version to 0.3.16
+- Fixed popup sign-in reliability by supporting multiple pending OAuth states in session
+- Added localhost canonicalization (`127.0.0.1` -> `localhost`) to prevent session state mismatches
+- Improved Intune app search with full pagination scan and matching on name, publisher, and description
+- Added Graph beta fallback for Intune app search and Intune app map retrieval
+- Added a user-facing info toast when an Intune app is found but has no assignments
+
 ## 0.3.15 - 2026-04-21
 
 - Bumped application version to 0.3.15

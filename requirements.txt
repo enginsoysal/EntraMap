@@ -1,8 +1,10 @@
 flask==3.0.3
 Flask-Session==0.8.0
+Flask-Compress==1.14.1
 redis==5.0.8
 msal==1.31.0
 requests==2.32.3
 python-dotenv==1.0.1
 cryptography==43.0.1
 gunicorn==22.0.0
+urllib3==2.1.0

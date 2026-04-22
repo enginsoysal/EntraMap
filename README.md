@@ -1,6 +1,6 @@
 # EntraMap
 
-Version 0.3.15
+Version 0.3.16
 
 EntraMap is a Flask web application that signs users in with Microsoft Entra ID and visualizes tenant relationships as an interactive graph. It helps you explore users, devices, groups, applications, and Conditional Access policies from a single screen.
 
@@ -23,119 +23,17 @@ EntraMap is a Flask web application that signs users in with Microsoft Entra ID 
 - Read-only deep links to Entra portal object pages
 - Frontend Features and How To Use pages embedded in the authentication popup
 
-## Version 0.3.14 Changes
+## Latest Changes (0.3.16)
 
-- Bumped the project version to 0.3.14
-- Forced the Sign in button itself to open Microsoft auth in a popup via inline popup-open logic
-- Kept the popup auth completion flow that refreshes the main window after successful sign-in
+- Fixed popup sign-in reliability by supporting multiple pending OAuth states in session
+- Added local host canonicalization between `127.0.0.1` and `localhost` to prevent session cookie/state mismatch
+- Improved Intune app search by scanning paginated `mobileApps` inventory and matching by name, publisher, and description
+- Added Microsoft Graph beta fallback for Intune app search and app map retrieval when app types are not exposed in v1.0
+- Added a clear in-app message when an Intune app is found but has no assignment links
 
-## Version 0.3.15 Changes
+## Release History
 
-- Bumped the project version to 0.3.15
-- Added stronger server-side session defaults with explicit TTL and secure cookie controls
-- Added optional Redis session backend support (`SESSION_TYPE=redis`, `REDIS_URL=...`) for production deployments
-- Added optional token cache encryption at rest via `TOKEN_CACHE_ENCRYPTION_KEY`
-- Added response hardening headers (`X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`)
-- Added no-store cache headers for non-static routes to reduce risk of cached sensitive responses
-
-## Version 0.3.13 Changes
-
-## Version 0.3.13 Changes
-
-- Bumped the project version to 0.3.13
-- Restored explicit popup-window behavior for Microsoft sign-in and Intune re-consent flows in modern browsers
-
-## Version 0.3.12 Changes
-- Custom EntraMap favicon and refreshed logo branding
-- Azure App Service friendly deployment model
-
-## Version 0.3.12 Changes
-
-- Bumped the project version to 0.3.12
-- Fixed Intune app Graph queries by removing invalid `isAssigned` field selections
-- Simplified Intune app search subtitles to avoid referencing unavailable properties
-- Added `DeviceManagementApps.Read.All` explicitly to the required delegated permission list
-
-## Version 0.3.11 Changes
-
-- Bumped the project version to 0.3.11
-- Intune app search now treats HTTP 401/403 as re-consent/permissions issues and triggers the consent flow
-- Search UI now shows detailed backend error text instead of only a generic unavailable message
-
-## Version 0.3.10 Changes
-
-- Bumped the project version to 0.3.10
-- Added automatic re-consent flow when Intune app search fails due to missing permissions
-- App search now opens a consent popup automatically and guides the user to retry after consent
-
-## Version 0.3.9 Changes
-
-- Bumped the project version to 0.3.9
-- Fixed Intune app search failure caused by an invalid Graph $select field
-- Kept App tab Intune-only while making platform filtering tolerant when Graph omits metadata annotations
-
-## Version 0.3.8 Changes
-
-- Bumped the project version to 0.3.8
-- App tab is now strict Intune-only (no Entra App Registration fallback)
-- App search now returns only Windows, macOS, iOS/iPadOS, and Android Intune app types
-- App map/details endpoints now resolve only Intune mobile apps
-
-## Version 0.3.7 Changes
-
-- Bumped the project version to 0.3.7
-- App search is now resilient: Intune apps first, with automatic Entra app fallback when Intune access is unavailable
-- Removed hard-fail behavior that showed "Intune app search failed" in the UI
-- App map/details now resolve from Intune first and fallback to Entra app objects when needed
-
-## Version 0.3.6 Changes
-
-- Bumped the project version to 0.3.6
-- Device map layout now centers on the searched device instead of defaulting to a user root
-- Switched App search from Entra service principals to Intune Company Portal apps (`deviceAppManagement/mobileApps`)
-- Switched App map/details endpoints to Intune mobile apps and assignment targets
-- Added delegated scope `DeviceManagementApps.Read.All` for Intune app visibility
-
-## Version 0.3.5 Changes
-
-- Bumped the project version to 0.3.5
-- Added Refresh button in graph toolbar to reload live Microsoft Graph data without re-searching
-- Force re-consent on next sign-in after Disconnect tenant
-- Added separate Sign Out button in header (distinct from Disconnect tenant)
-- Widened group detection in memberOf filter for better compatibility across tenant configurations
-
-## Version 0.3.4 Changes
-
-- Bumped the project version to 0.3.4
-- Replaced browser confirm dialog on Disconnect tenant with a styled in-app lightbox
-
-## Version 0.3.3 Changes
-
-- Bumped the project version to 0.3.3
-- Added Disconnect tenant button below the header for a full local session and token wipe
-- Moved footer links into the auth popup so they remain visible while signed out
-
-## Version 0.3.2 Changes
-
-- Bumped the project version to 0.3.2
-- Changed sign-out to instant local sign-out (no Microsoft account picker)
-- Kept popup sign-in behavior for a smooth in-app authentication flow
-
-## Version 0.3.1 Changes
-
-- Bumped the project version to 0.3.1
-- Added true popup window behavior for Microsoft sign-in from frontend buttons
-- Added popup callback completion handling to refresh the main app after successful sign-in
-- Added popup callback error handling to surface login errors back in the main app
-
-## Version 0.3.0 Changes
-
-- Upgraded the project version to 0.3.0
-- Replaced standalone login page flow with a homepage popup login experience
-- Added frontend onboarding tabs in the popup: Sign In, Features, and How To Use
-- Added custom EntraMap logo and favicon assets
-- Improved signed-out behavior to keep the app visible while requiring sign-in for data actions
-- Kept all operational functionality read-only
+For full historical version notes, see `LOG.md`.
 
 ## Requirements
 

@@ -1,284 +1,199 @@
 """
-EntraMap — Flask app
-Multi-tenant, delegated OAuth2 flow via MSAL.
+EntraMap - Modular Flask App
+Clean entry point with minimal routing.
+All business logic is in engines; all low-level utilities in services.
+
+PERFORMANCE OPTIMIZATIONS:
+- Gzip compression for JSON responses
+- Connection pooling for Graph API
+- Result caching with TTL
+- Early-stopping pagination
 """
 
 import os
-import uuid
-import base64
-import tempfile
-import requests
 from datetime import timedelta
-import importlib
 from functools import wraps
-from flask import (
-    Flask, render_template, jsonify, request,
-    redirect, session, url_for,
-)
+from urllib.parse import urlparse
+
+from flask import Flask, render_template, jsonify, request, redirect, session, url_for
 from flask_session import Session
-from msal import ConfidentialClientApplication, SerializableTokenCache
-from dotenv import load_dotenv
+from flask_compress import Compress
+import importlib
 
-try:
-    from cryptography.fernet import Fernet, InvalidToken
-except Exception:
-    Fernet = None
-    InvalidToken = Exception
+from config.config import Config
+from services.session_service import SessionService
+from services.photo_service import PhotoService
+from services.cache_service import CacheService
 
-load_dotenv()
-
-
-def _env_bool(name, default=False):
-    raw = os.getenv(name)
-    if raw is None:
-        return default
-    return str(raw).strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _env_int(name, default):
-    raw = os.getenv(name)
-    if raw is None:
-        return default
-    try:
-        return int(raw)
-    except ValueError:
-        return default
+from engines.auth_engine import AuthEngine
+from engines.user_search_engine import UserSearchEngine
+from engines.device_search_engine import DeviceSearchEngine
+from engines.group_search_engine import GroupSearchEngine
+from engines.app_search_engine import AppSearchEngine
+from engines.ca_search_engine import CASearchEngine
+from engines.user_map_engine import UserMapEngine
+from engines.device_map_engine import DeviceMapEngine
+from engines.group_map_engine import GroupMapEngine
+from engines.app_map_engine import AppMapEngine
+from engines.ca_map_engine import CAMapEngine
 
 
-CLIENT_ID = os.getenv("CLIENT_ID", "")
-CLIENT_SECRET = os.getenv("CLIENT_SECRET", "")
-REDIRECT_PATH = "/auth/callback"
-REDIRECT_URI = os.getenv("REDIRECT_URI", "").strip()
+# ────────────────────────────────────────────────────────────────────────────
+# Flask App Setup
+# ────────────────────────────────────────────────────────────────────────────
 
-# ── App setup ─────────────────────────────────────────────────────────────────
+def create_app() -> Flask:
+    """Create and configure Flask application"""
+    app = Flask(__name__)
+    app.secret_key = Config.SECRET_KEY
+    
+    # Enable Gzip compression for JSON responses (reduces size by ~70%)
+    Compress(app)
+    
+    # Session configuration
+    app.config["SESSION_TYPE"] = Config.SESSION_TYPE
+    app.config["SESSION_PERMANENT"] = True
+    app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(minutes=Config.SESSION_TTL_MINUTES)
+    app.config["SESSION_REFRESH_EACH_REQUEST"] = False
+    app.config["SESSION_USE_SIGNER"] = True
+    app.config["SESSION_COOKIE_NAME"] = Config.SESSION_COOKIE_NAME
+    app.config["SESSION_COOKIE_HTTPONLY"] = True
+    app.config["SESSION_COOKIE_SECURE"] = Config.SESSION_COOKIE_SECURE
+    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
-app = Flask(__name__)
-app.secret_key = os.getenv("FLASK_SECRET_KEY", os.urandom(32))
-app.config["SESSION_TYPE"] = os.getenv("SESSION_TYPE", "filesystem").strip().lower()
-
-if app.config["SESSION_TYPE"] == "redis":
-    redis_url = os.getenv("REDIS_URL", "").strip()
-    if not redis_url:
-        raise RuntimeError("SESSION_TYPE=redis requires REDIS_URL to be configured")
-    try:
-        redis_lib = importlib.import_module("redis")
-    except Exception as exc:
-        raise RuntimeError("SESSION_TYPE=redis requires redis package to be installed")
-    app.config["SESSION_REDIS"] = redis_lib.from_url(redis_url)
-else:
-    app.config["SESSION_TYPE"] = "filesystem"
-    # Azure App Service may run app code from a read-only location.
-    # Store server-side session files in a guaranteed writable temp path.
-    session_dir = os.getenv("SESSION_FILE_DIR", os.path.join(tempfile.gettempdir(), "entramap_flask_session"))
-    os.makedirs(session_dir, exist_ok=True)
-    app.config["SESSION_FILE_DIR"] = session_dir
-
-app.config["SESSION_PERMANENT"] = True
-app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(minutes=_env_int("SESSION_TTL_MINUTES", 60))
-app.config["SESSION_REFRESH_EACH_REQUEST"] = False
-app.config["SESSION_USE_SIGNER"] = True
-app.config["SESSION_COOKIE_NAME"] = os.getenv("SESSION_COOKIE_NAME", "entramap_session")
-app.config["SESSION_COOKIE_HTTPONLY"] = True
-app.config["SESSION_COOKIE_SECURE"] = _env_bool("SESSION_COOKIE_SECURE", REDIRECT_URI.startswith("https://"))
-app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-Session(app)
-
-GRAPH_BASE = "https://graph.microsoft.com/v1.0"
-APP_VERSION = "0.3.15"
-
-SCOPES = [
-    "User.Read",
-    "User.ReadBasic.All",
-    "Group.Read.All",
-    "Device.Read.All",
-    "Application.Read.All",
-    "DeviceManagementApps.Read.All",
-    "Policy.Read.All",
-    "Directory.Read.All",
-]
-
-
-def _get_cache_cipher():
-    key = os.getenv("TOKEN_CACHE_ENCRYPTION_KEY", "").strip()
-    if not key:
-        return None
-    if Fernet is None:
-        raise RuntimeError("TOKEN_CACHE_ENCRYPTION_KEY is set but cryptography package is not installed")
-    return Fernet(key.encode("utf-8"))
-
-
-def _encrypt_cache_blob(serialized_cache):
-    cipher = _get_cache_cipher()
-    if not cipher:
-        return serialized_cache
-    token = cipher.encrypt(serialized_cache.encode("utf-8"))
-    return token.decode("utf-8")
-
-
-def _decrypt_cache_blob(raw_cache_blob):
-    cipher = _get_cache_cipher()
-    if not cipher:
-        return raw_cache_blob
-    plain = cipher.decrypt(raw_cache_blob.encode("utf-8"))
-    return plain.decode("utf-8")
-
-
-def _msal_app(cache=None):
-    return ConfidentialClientApplication(
-        CLIENT_ID,
-        authority="https://login.microsoftonline.com/organizations",
-        client_credential=CLIENT_SECRET,
-        token_cache=cache,
-    )
-
-
-def _load_cache():
-    cache = SerializableTokenCache()
-    raw_cache_blob = session.get("token_cache")
-    if raw_cache_blob:
+    # Redis session support
+    if Config.SESSION_TYPE == "redis":
+        redis_url = Config.REDIS_URL
+        if not redis_url:
+            raise RuntimeError("SESSION_TYPE=redis requires REDIS_URL to be configured")
         try:
-            cache.deserialize(_decrypt_cache_blob(raw_cache_blob))
-        except InvalidToken:
-            session.pop("token_cache", None)
-        except Exception:
-            session.pop("token_cache", None)
-    return cache
+            redis_lib = importlib.import_module("redis")
+            app.config["SESSION_REDIS"] = redis_lib.from_url(redis_url)
+        except Exception as exc:
+            raise RuntimeError("SESSION_TYPE=redis requires redis package")
+    else:
+        # Filesystem session
+        os.makedirs(Config.SESSION_FILE_DIR, exist_ok=True)
+        app.config["SESSION_FILE_DIR"] = Config.SESSION_FILE_DIR
 
+    Session(app)
 
-def _save_cache(cache):
-    if cache.has_state_changed:
-        session["token_cache"] = _encrypt_cache_blob(cache.serialize())
+    # Keep local host consistent with REDIRECT_URI to preserve session cookies.
+    parsed_redirect = urlparse(Config.REDIRECT_URI) if Config.REDIRECT_URI else None
+    redirect_host = parsed_redirect.hostname if parsed_redirect else None
+    redirect_port = parsed_redirect.port if parsed_redirect else None
+    redirect_scheme = parsed_redirect.scheme if parsed_redirect else None
 
+    @app.before_request
+    def enforce_local_canonical_host():
+        if not redirect_host:
+            return None
 
-def _get_token_from_cache():
-    cache = _load_cache()
-    msal = _msal_app(cache)
-    accounts = msal.get_accounts()
-    if not accounts:
+        request_host = request.host.split(":", 1)[0].lower()
+        localhost_aliases = {"localhost", "127.0.0.1"}
+
+        if request_host == redirect_host.lower():
+            return None
+
+        if {request_host, redirect_host.lower()}.issubset(localhost_aliases):
+            scheme = redirect_scheme or request.scheme
+            target = f"{scheme}://{redirect_host}"
+            if redirect_port:
+                target += f":{redirect_port}"
+            target += request.path
+            if request.query_string:
+                target += f"?{request.query_string.decode('utf-8', errors='ignore')}"
+            return redirect(target, code=302)
+
         return None
-    result = msal.acquire_token_silent(SCOPES, account=accounts[0])
-    _save_cache(cache)
-    if result and "access_token" in result:
-        return result["access_token"]
-    return None
+
+    # Security headers
+    @app.after_request
+    def set_security_headers(resp):
+        resp.headers.setdefault("X-Frame-Options", "DENY")
+        resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+        resp.headers.setdefault("Referrer-Policy", "no-referrer")
+        resp.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+        
+        if not request.path.startswith("/static/"):
+            resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+            resp.headers["Pragma"] = "no-cache"
+            resp.headers["Expires"] = "0"
+        return resp
+
+    return app
 
 
-def _redirect_uri():
-    # Prefer an explicit configured callback in hosted environments.
-    return REDIRECT_URI or url_for("auth_callback", _external=True)
+app = create_app()
 
 
-@app.after_request
-def _set_security_headers(resp):
-    resp.headers.setdefault("X-Frame-Options", "DENY")
-    resp.headers.setdefault("X-Content-Type-Options", "nosniff")
-    resp.headers.setdefault("Referrer-Policy", "no-referrer")
-    resp.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+# ────────────────────────────────────────────────────────────────────────────
+# Engine Initialization
+# ────────────────────────────────────────────────────────────────────────────
 
-    # Prevent caching of HTML/API responses containing session-bound data.
-    if not request.path.startswith("/static/"):
-        resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
-        resp.headers["Pragma"] = "no-cache"
-        resp.headers["Expires"] = "0"
-    return resp
+auth_engine = AuthEngine(Config)
 
 
-# ── Auth decorator ────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────────────────
+# Decorators
+# ────────────────────────────────────────────────────────────────────────────
 
 def login_required(f):
+    """Decorator: require authenticated session and valid token"""
     @wraps(f)
     def decorated(*args, **kwargs):
-        if not session.get("user"):
+        if not SessionService.is_authenticated(session):
             if request.path.startswith("/api/"):
                 return jsonify({"error": "Session expired"}), 401
             return redirect(url_for("index", login_error="Sign in required"))
-        token = _get_token_from_cache()
+        
+        token = auth_engine.get_token(session)
         if not token:
-            session.clear()
+            SessionService.clear(session)
             if request.path.startswith("/api/"):
                 return jsonify({"error": "Session expired"}), 401
             return redirect(url_for("index", login_error="Session expired. Please sign in again."))
+        
         return f(*args, **kwargs)
     return decorated
 
 
-# ── Graph helpers ─────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────────────────
+# Routes: Main Page
+# ────────────────────────────────────────────────────────────────────────────
 
-def graph_get(endpoint, token, extra_headers=None):
-    headers = {"Authorization": f"Bearer {token}"}
-    if extra_headers:
-        headers.update(extra_headers)
-    url = endpoint if endpoint.startswith("http") else f"{GRAPH_BASE}{endpoint}"
-    try:
-        resp = requests.get(url, headers=headers, timeout=30)
-    except requests.RequestException as exc:
-        return {"error": "network", "message": str(exc)}
-    if resp.status_code == 200:
-        return resp.json()
-    if resp.status_code == 404:
-        return None
-    return {"error": resp.status_code, "message": resp.text[:500]}
-
-
-def graph_get_all(endpoint, token, extra_headers=None, max_items=100):
-    results = []
-    url = endpoint if endpoint.startswith("http") else f"{GRAPH_BASE}{endpoint}"
-    while url and len(results) < max_items:
-        data = graph_get(url, token, extra_headers)
-        if not data or "value" not in data:
-            break
-        results.extend(data["value"])
-        url = data.get("@odata.nextLink")
-    return results[:max_items]
-
-
-def get_intune_group_app_index(token, target_group_ids=None, max_apps=400):
-    target_ids = set(target_group_ids or [])
-    app_index = {}
-    apps = graph_get_all(
-        "/deviceAppManagement/mobileApps"
-        "?$select=id,displayName,publisher,description,createdDateTime,lastModifiedDateTime"
-        "&$top=100",
-        token,
-        max_items=max_apps,
+@app.route("/")
+def index():
+    user = SessionService.get_user(session)
+    return render_template(
+        "index.html",
+        user=user,
+        signed_in=bool(user),
+        login_error=request.args.get("login_error", ""),
+        version=Config.VERSION,
     )
 
-    for app in apps:
-        assignments = graph_get_all(
-            f"/deviceAppManagement/mobileApps/{app['id']}/assignments?$top=50",
-            token,
-            max_items=50,
-        )
-        for assignment in assignments:
-            target = assignment.get("target", {})
-            target_type = target.get("@odata.type", "")
-            if "groupAssignmentTarget" not in target_type:
-                continue
 
-            group_id = target.get("groupId")
-            if not group_id:
-                continue
-            if target_ids and group_id not in target_ids:
-                continue
-
-            app_index.setdefault(group_id, []).append(
-                {
-                    "app": {
-                        "id": app["id"],
-                        "displayName": app.get("displayName", "Intune app"),
-                        "publisher": app.get("publisher", ""),
-                        "description": app.get("description", ""),
-                        "createdDateTime": app.get("createdDateTime", ""),
-                        "lastModifiedDateTime": app.get("lastModifiedDateTime", ""),
-                    },
-                    "edge_label": "excluded from" if "exclusion" in target_type.lower() else "assigned to",
-                }
-            )
-
-    return app_index
+@app.route("/api/health")
+def health():
+    is_valid, err = Config.validate()
+    return jsonify({
+        "status": "ok" if is_valid else "warning",
+        "version": Config.VERSION,
+        "signed_in": bool(SessionService.is_authenticated(session)),
+        "message": "Configuration loaded" if is_valid else err,
+    })
 
 
-# ── Auth routes ───────────────────────────────────────────────────────────────
+@app.route("/api/me")
+@login_required
+def me():
+    return jsonify(SessionService.get_user(session) or {})
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# Routes: Authentication
+# ────────────────────────────────────────────────────────────────────────────
 
 @app.route("/login")
 def login():
@@ -291,759 +206,193 @@ def login():
 @app.route("/auth/signin")
 def auth_signin():
     use_popup = request.args.get("popup") == "1"
-    force_consent = (request.args.get("force_consent") == "1") or bool(session.pop("require_consent", False))
-    session["auth_popup"] = use_popup
-    session["state"] = str(uuid.uuid4())
-    session.modified = True  # Explicitly mark session as modified
-    redirect_uri = _redirect_uri()
-    auth_url = _msal_app().get_authorization_request_url(
-        SCOPES,
-        state=session["state"],
-        redirect_uri=redirect_uri,
-        prompt="consent" if force_consent else "select_account",
-    )
+    force_consent = request.args.get("force_consent") == "1"
+    auth_url = auth_engine.get_authorization_url(session, use_popup, force_consent)
     return redirect(auth_url)
 
 
-@app.route(REDIRECT_PATH)
+@app.route(Config.REDIRECT_PATH)
 def auth_callback():
-    use_popup = bool(session.pop("auth_popup", False))
-
-    if request.args.get("state") != session.get("state"):
-        if use_popup:
-            return render_template("auth_popup_done.html", success=False, message="State mismatch. Please try again.")
-        return redirect(url_for("index", login_error="State mismatch. Please try again."))
-
-    if "error" in request.args:
-        desc = request.args.get("error_description", request.args.get("error"))
-        if use_popup:
-            return render_template("auth_popup_done.html", success=False, message=desc)
-        return redirect(url_for("index", login_error=desc))
-
+    use_popup = SessionService.get_auth_popup(session)
     code = request.args.get("code")
-    if not code:
+    state = request.args.get("state")
+
+    success, message, user_info = auth_engine.handle_callback(session, code, state)
+
+    if success:
+        SessionService.set_user(session, user_info)
         if use_popup:
-            return render_template("auth_popup_done.html", success=False, message="No authorization code was received.")
-        return redirect(url_for("index", login_error="No authorization code was received."))
-
-    redirect_uri = _redirect_uri()
-    cache = _load_cache()
-    msal = _msal_app(cache)
-    result = msal.acquire_token_by_authorization_code(
-        code, scopes=SCOPES, redirect_uri=redirect_uri,
-    )
-    _save_cache(cache)
-
-    if "error" in result:
-        message = result.get("error_description", result["error"])
+            return render_template("auth_popup_done.html", success=True, message="Sign-in completed. You can close this window.")
+        return redirect(url_for("index"))
+    else:
         if use_popup:
             return render_template("auth_popup_done.html", success=False, message=message)
         return redirect(url_for("index", login_error=message))
 
-    claims = result.get("id_token_claims", {})
-    token_cache_blob = session.get("token_cache")
-    require_consent = session.get("require_consent")
-    session.clear()
-    if token_cache_blob:
-        session["token_cache"] = token_cache_blob
-    if require_consent:
-        session["require_consent"] = require_consent
-    session["user"] = {
-        "name": claims.get("name", "Unknown"),
-        "upn":  claims.get("preferred_username", ""),
-        "tid":  claims.get("tid", ""),
-        "oid":  claims.get("oid", ""),
-    }
-    if use_popup:
-        return render_template("auth_popup_done.html", success=True, message="Sign-in completed. You can close this window.")
-    return redirect(url_for("index"))
-
 
 @app.route("/auth/signout")
 def auth_signout():
-    session.clear()
+    auth_engine.signout(session)
     return redirect(url_for("index"))
 
 
 @app.route("/auth/disconnect")
 def auth_disconnect():
-    """Hard disconnect: wipe token cache, session, all tenant traces, then return to sign-in."""
-    session.clear()
-    # Force re-consent on next sign-in so tenant permissions are requested again
-    session["require_consent"] = True
+    """Hard disconnect: clear session and force re-consent on next sign-in"""
+    auth_engine.disconnect(session)
     return redirect(url_for("index"))
 
 
-# ── Main page ─────────────────────────────────────────────────────────────────
-
-@app.route("/")
-def index():
-    user = session.get("user")
-    return render_template(
-        "index.html",
-        user=user,
-        signed_in=bool(user),
-        login_error=request.args.get("login_error", ""),
-        version=APP_VERSION,
-    )
-
-
-@app.route("/api/health")
-def health():
-    config_ok = bool(CLIENT_ID and CLIENT_SECRET and app.secret_key)
-    return jsonify(
-        {
-            "status": "ok" if config_ok else "warning",
-            "version": APP_VERSION,
-            "signed_in": bool(session.get("user")),
-            "message": "Configuration loaded" if config_ok else "Missing application configuration",
-        }
-    )
-
-
-# ── API: search ───────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────────────────
+# Routes: Search
+# ────────────────────────────────────────────────────────────────────────────
 
 @app.route("/api/search")
 @login_required
 def search():
     query = request.args.get("q", "").strip()
     search_type = request.args.get("type", "user")
-    if len(query) < 2:
-        return jsonify([])
-
-    token = _get_token_from_cache()
-    if not token:
-        return jsonify({"error": "Session expired"}), 401
+    token = auth_engine.get_token(session)
 
     if search_type == "user":
-        endpoint = (
-            f'/users?$search="displayName:{query}" OR "userPrincipalName:{query}"'
-            f"&$select=id,displayName,userPrincipalName,jobTitle,department"
-            f"&$top=15&$count=true"
-        )
-        data = graph_get(endpoint, token, extra_headers={"ConsistencyLevel": "eventual"})
-        items = data.get("value", []) if data and "value" in data else []
-        if not items:
-            safe_q = query.replace("'", "''")
-            data = graph_get(
-                f"/users?$filter=startswith(displayName,'{safe_q}')"
-                f" or startswith(userPrincipalName,'{safe_q}')"
-                f"&$select=id,displayName,userPrincipalName,jobTitle,department&$top=15",
-                token,
-            )
-            items = data.get("value", []) if data and "value" in data else []
-        return jsonify([
-            {"id": u["id"], "label": u.get("displayName", ""), "subtitle": u.get("userPrincipalName", ""), "type": "user"}
-            for u in items
-        ])
-
-    if search_type == "group":
-        endpoint = (
-            f'/groups?$search="displayName:{query}"'
-            f"&$select=id,displayName,description,groupTypes&$top=15&$count=true"
-        )
-        data = graph_get(endpoint, token, extra_headers={"ConsistencyLevel": "eventual"})
-        items = data.get("value", []) if data and "value" in data else []
-        if not items:
-            safe_q = query.replace("'", "''")
-            data = graph_get(
-                f"/groups?$filter=startswith(displayName,'{safe_q}')"
-                f"&$select=id,displayName,description,groupTypes&$top=15",
-                token,
-            )
-            items = data.get("value", []) if data and "value" in data else []
-        return jsonify([
-            {"id": g["id"], "label": g.get("displayName", ""), "subtitle": g.get("description", ""), "type": "group"}
-            for g in items
-        ])
-
+        return jsonify(UserSearchEngine.search(query, token))
+    
     if search_type == "device":
-        endpoint = (
-            f'/devices?$search="displayName:{query}"'
-            f"&$select=id,displayName,operatingSystem,deviceId,isManaged,isCompliant"
-            f"&$top=15&$count=true"
-        )
-        data = graph_get(endpoint, token, extra_headers={"ConsistencyLevel": "eventual"})
-        items = data.get("value", []) if data and "value" in data else []
-        if not items:
-            safe_q = query.replace("'", "''")
-            data = graph_get(
-                f"/devices?$filter=startswith(displayName,'{safe_q}')"
-                f"&$select=id,displayName,operatingSystem,deviceId,isManaged,isCompliant&$top=15",
-                token,
-            )
-            items = data.get("value", []) if data and "value" in data else []
-        return jsonify([
-            {
-                "id": d["id"],
-                "label": d.get("displayName", ""),
-                "subtitle": d.get("operatingSystem", ""),
-                "type": "device",
-            }
-            for d in items
-        ])
-
+        return jsonify(DeviceSearchEngine.search(query, token))
+    
+    if search_type == "group":
+        return jsonify(GroupSearchEngine.search(query, token))
+    
     if search_type == "app":
-        # Strict Intune-only app search (Company Portal catalog), no Entra fallback.
-        first_page = graph_get(
-            "/deviceAppManagement/mobileApps"
-            "?$select=id,displayName,publisher,description,lastModifiedDateTime"
-            "&$top=100",
-            token,
-        )
-        if first_page and "error" in first_page:
-            error_code = first_page.get("error")
-            message = (first_page.get("message") or "").lower()
-            needs_consent = (error_code in (401, 403)) or any(
-                k in message for k in [
-                    "insufficient privileges",
-                    "authorization_requestdenied",
-                    "consent",
-                    "forbidden",
-                    "permission",
-                ]
-            )
-            if needs_consent:
-                session["require_consent"] = True
-                return jsonify(
-                    {
-                        "error": "Intune permissions require re-consent",
-                        "details": first_page.get("message", ""),
-                        "reauth_url": "/auth/signin?popup=1&force_consent=1",
-                    }
-                ), 428
-            return jsonify(
-                {
-                    "error": "Intune app search unavailable",
-                    "details": first_page.get("message", "Missing Intune permissions, Intune role assignment, or Intune licensing."),
-                }
-            ), 502
-
-        all_apps = graph_get_all(
-            "/deviceAppManagement/mobileApps"
-            "?$select=id,displayName,publisher,description,lastModifiedDateTime"
-            "&$top=100",
-            token,
-            max_items=1200,
-        )
-
-        def is_supported_intune_app(a):
-            odata_type = (a.get("@odata.type") or "").lower()
-            if not odata_type:
-                # If metadata annotation is omitted by Graph, keep item visible
-                # rather than returning a false-empty result set.
-                return True
-            return any(
-                t in odata_type
-                for t in [
-                    "win32lobapp",
-                    "windowsstoreapp",
-                    "windowsmicrosoftedgeapp",
-                    "windowsuniversalappx",
-                    "iosstoreapp",
-                    "ioslobapp",
-                    "managedioslobapp",
-                    "macosdmgapp",
-                    "macospkgapp",
-                    "macoslobapp",
-                    "androidstoreapp",
-                    "managedandroidlobapp",
-                    "androidmanagedstoreapp",
-                ]
-            )
-
-        def platform_label(a):
-            t = (a.get("@odata.type") or "").lower()
-            if "windows" in t or "win32" in t:
-                return "Windows"
-            if "macos" in t:
-                return "macOS"
-            if "ios" in t:
-                return "iOS/iPadOS"
-            if "android" in t:
-                return "Android"
-            return "Intune"
-
-        q = query.lower()
-        filtered = [
-            a for a in all_apps
-            if is_supported_intune_app(a) and q in (a.get("displayName", "").lower())
-        ]
-
-        filtered.sort(key=lambda a: a.get("displayName", "").lower())
-
-        return jsonify([
-            {
-                "id": a["id"],
-                "label": a.get("displayName", ""),
-                "subtitle": f"{platform_label(a)} · " + (a.get("publisher", "") or "Intune app"),
-                "type": "app",
-            }
-            for a in filtered[:15]
-        ])
-
+        results, error = AppSearchEngine.search(query, token)
+        if error:
+            if "reauth_url" in error:
+                SessionService.set_require_consent(session, True)
+                return jsonify(error), 428
+            return jsonify(error), 502
+        return jsonify(results)
+    
     if search_type == "ca_policy":
-        safe_q = query.replace("'", "''")
-        data = graph_get(
-            f"/identity/conditionalAccessPolicies?$filter=startswith(displayName,'{safe_q}')"
-            f"&$select=id,displayName,state&$top=15",
-            token,
-        )
-        items = data.get("value", []) if data and "value" in data else []
-        return jsonify([
-            {
-                "id": p["id"],
-                "label": p.get("displayName", ""),
-                "subtitle": p.get("state", ""),
-                "type": "ca_policy",
-            }
-            for p in items
-        ])
-
+        return jsonify(CASearchEngine.search(query, token))
+    
     return jsonify([])
 
 
-# ── API: user map ─────────────────────────────────────────────────────────────
+# ────────────────────────────────────────────────────────────────────────────
+# Routes: Graph Maps (Mindmap)
+# ────────────────────────────────────────────────────────────────────────────
 
 @app.route("/api/map/user/<user_id>")
 @login_required
 def user_map(user_id):
-    token = _get_token_from_cache()
-    if not token:
-        return jsonify({"error": "Session expired"}), 401
-
-    nodes, edges, node_ids = [], [], set()
-
-    def add_node(n):
-        if n["id"] not in node_ids:
-            node_ids.add(n["id"])
-            nodes.append(n)
-
-    def clean(obj):
-        return {k: v for k, v in obj.items() if not k.startswith("@")}
-
-    # Keep the base profile query conservative so it works across tenants/permission sets.
-    user = graph_get(
-        "/users/{}?$select=id,displayName,userPrincipalName,jobTitle,department,"
-        "mail,accountEnabled,city,country,mobilePhone,officeLocation,companyName,"
-        "createdDateTime,lastPasswordChangeDateTime".format(user_id),
-        token,
-    )
-    if not user:
-        return jsonify({"error": "User not found"}), 404
-    if "error" in user:
-        status = 404 if str(user.get("error")).lower() == "itemnotfound" else 502
-        return jsonify({"error": user.get("message", "Failed to load user")}), status
-
-    # signInActivity may require extra permissions or tenant licenses; treat as optional.
-    sign_in_activity = graph_get(f"/users/{user_id}?$select=signInActivity", token)
-    if sign_in_activity and "error" not in sign_in_activity and "signInActivity" in sign_in_activity:
-        user["signInActivity"] = sign_in_activity.get("signInActivity")
-
-    add_node({"id": user["id"], "label": user.get("displayName", "?"), "type": "user", "data": clean(user)})
-
-    for rel_label, ep in [
-        ("owned device", f"/users/{user_id}/ownedDevices"),
-        ("registered device", f"/users/{user_id}/registeredDevices"),
-    ]:
-        for dev in graph_get_all(
-            ep + "?$select=id,displayName,operatingSystem,operatingSystemVersion,isCompliant,isManaged,trustType,deviceId",
-            token,
-        ):
-            if dev["id"] not in node_ids:
-                add_node({"id": dev["id"], "label": dev.get("displayName", "Device"), "type": "device", "data": clean(dev)})
-                edges.append({"source": user["id"], "target": dev["id"], "label": rel_label})
-
-    group_ids = []
-    for m in graph_get_all(
-        f"/users/{user_id}/transitiveMemberOf?$select=id,displayName,description,groupTypes,securityEnabled,mailEnabled",
-        token,
-        max_items=400,
-    ):
-        odata_type = m.get("@odata.type", "")
-        # Accept if explicitly typed as group, or if it has typical group fields,
-        # or if @odata.type is absent (some tenants omit it via $select)
-        is_group = (
-            "#microsoft.graph.group" in odata_type
-            or "groupTypes" in m
-            or "securityEnabled" in m
-        )
-        if not is_group:
-            continue
-        group_ids.append(m["id"])
-        add_node({"id": m["id"], "label": m.get("displayName", "Group"), "type": "group", "data": clean(m)})
-        edges.append({"source": user["id"], "target": m["id"], "label": "member of"})
-
-    intune_app_index = get_intune_group_app_index(token, group_ids)
-    for gid, app_links in intune_app_index.items():
-        for app_link in app_links:
-            app_obj = app_link["app"]
-            if app_obj["id"] not in node_ids:
-                add_node({"id": app_obj["id"], "label": app_obj.get("displayName", "Intune app"), "type": "app", "data": clean(app_obj)})
-            if not any(e["source"] == gid and e["target"] == app_obj["id"] and e["label"] == app_link["edge_label"] for e in edges):
-                edges.append({"source": gid, "target": app_obj["id"], "label": app_link["edge_label"]})
-
-    seen_apps = set()
-    for gid in group_ids:
-        for assignment in graph_get_all(f"/groups/{gid}/appRoleAssignments", token, max_items=100):
-            sp_id = assignment.get("resourceId")
-            if not sp_id:
-                continue
-            if sp_id not in seen_apps:
-                seen_apps.add(sp_id)
-                sp = graph_get(
-                    f"/servicePrincipals/{sp_id}?$select=id,displayName,appId,description,servicePrincipalType,publisherName",
-                    token,
-                )
-                if sp and "error" not in sp:
-                    add_node({"id": sp["id"], "label": sp.get("displayName", "App"), "type": "app", "data": clean(sp)})
-            if sp_id in node_ids and not any(e["source"] == gid and e["target"] == sp_id for e in edges):
-                edges.append({"source": gid, "target": sp_id, "label": "access to"})
-
-    for policy in graph_get_all(
-        "/identity/conditionalAccessPolicies?$select=id,displayName,state,conditions,grantControls",
-        token, max_items=200,
-    ):
-        cond = policy.get("conditions", {})
-        u_cond = cond.get("users", {})
-        inc_users  = u_cond.get("includeUsers", [])
-        inc_groups = u_cond.get("includeGroups", [])
-        exc_users  = u_cond.get("excludeUsers", [])
-        exc_groups = u_cond.get("excludeGroups", [])
-        included = "All" in inc_users or user["id"] in inc_users or any(g in inc_groups for g in group_ids)
-        excluded  = user["id"] in exc_users or any(g in exc_groups for g in group_ids)
-        if included and not excluded:
-            add_node({"id": policy["id"], "label": policy.get("displayName", "CA Policy"), "type": "ca_policy", "data": clean(policy)})
-            edges.append({"source": user["id"], "target": policy["id"], "label": "affected by"})
-
+    token = auth_engine.get_token(session)
+    nodes, edges, error = UserMapEngine.build(user_id, token)
+    
+    if error:
+        status = error.get("status", 502)
+        return jsonify(error), status
+    
     return jsonify({"nodes": nodes, "edges": edges})
 
-
-# ── API: device map ───────────────────────────────────────────────────────────
 
 @app.route("/api/map/device/<device_id>")
 @login_required
 def device_map(device_id):
-    token = _get_token_from_cache()
-    if not token:
-        return jsonify({"error": "Session expired"}), 401
-
-    nodes, edges, node_ids = [], [], set()
-
-    def add_node(n):
-        if n["id"] not in node_ids:
-            node_ids.add(n["id"])
-            nodes.append(n)
-
-    def clean(obj):
-        return {k: v for k, v in obj.items() if not k.startswith("@")}
-
-    device = graph_get(
-        f"/devices/{device_id}?$select=id,displayName,operatingSystem,operatingSystemVersion,isManaged,isCompliant,trustType,deviceId",
-        token,
-    )
-    if not device or "error" in device:
-        return jsonify({"error": "Device not found"}), 404
-
-    add_node({"id": device["id"], "label": device.get("displayName", "?"), "type": "device", "data": clean(device)})
-
-    for owner in graph_get_all(
-        f"/devices/{device_id}/registeredOwners?$select=id,displayName,userPrincipalName,jobTitle",
-        token,
-        max_items=50,
-    ):
-        if "#microsoft.graph.user" not in owner.get("@odata.type", "") and "userPrincipalName" not in owner:
-            continue
-        add_node({"id": owner["id"], "label": owner.get("displayName", "?"), "type": "user", "data": clean(owner)})
-        edges.append({"source": owner["id"], "target": device["id"], "label": "owns"})
-
-    for user in graph_get_all(
-        f"/devices/{device_id}/registeredUsers?$select=id,displayName,userPrincipalName,jobTitle",
-        token,
-        max_items=50,
-    ):
-        if "#microsoft.graph.user" not in user.get("@odata.type", "") and "userPrincipalName" not in user:
-            continue
-        add_node({"id": user["id"], "label": user.get("displayName", "?"), "type": "user", "data": clean(user)})
-        edges.append({"source": user["id"], "target": device["id"], "label": "registered"})
-
+    token = auth_engine.get_token(session)
+    nodes, edges, error = DeviceMapEngine.build(device_id, token)
+    
+    if error:
+        return jsonify(error), 404
+    
     return jsonify({"nodes": nodes, "edges": edges})
 
-
-# ── API: app map ──────────────────────────────────────────────────────────────
-
-@app.route("/api/map/app/<app_id>")
-@login_required
-def app_map(app_id):
-    token = _get_token_from_cache()
-    if not token:
-        return jsonify({"error": "Session expired"}), 401
-
-    nodes, edges, node_ids = [], [], set()
-
-    def add_node(n):
-        if n["id"] not in node_ids:
-            node_ids.add(n["id"])
-            nodes.append(n)
-
-    def clean(obj):
-        return {k: v for k, v in obj.items() if not k.startswith("@")}
-
-    # Intune app (Company Portal catalog item)
-    app_item = graph_get(
-        f"/deviceAppManagement/mobileApps/{app_id}?$select=id,displayName,publisher,description,createdDateTime,lastModifiedDateTime",
-        token,
-    )
-    if not app_item or "error" in app_item:
-        return jsonify({"error": "Intune app not found"}), 404
-
-    add_node({"id": app_item["id"], "label": app_item.get("displayName", "?"), "type": "app", "data": clean(app_item)})
-
-    assignments = graph_get_all(
-        f"/deviceAppManagement/mobileApps/{app_id}/assignments?$top=200",
-        token,
-        max_items=200,
-    )
-
-    for assignment in assignments:
-        target = assignment.get("target", {})
-        target_type = target.get("@odata.type", "")
-
-        if "groupAssignmentTarget" in target_type:
-            group_id = target.get("groupId")
-            if not group_id:
-                continue
-            grp = graph_get(
-                f"/groups/{group_id}?$select=id,displayName,description,groupTypes,securityEnabled,mailEnabled",
-                token,
-            )
-            if grp and "error" not in grp:
-                add_node({"id": grp["id"], "label": grp.get("displayName", "Group"), "type": "group", "data": clean(grp)})
-                edge_label = "excluded from" if "exclusion" in target_type.lower() else "assigned to"
-                edges.append({"source": grp["id"], "target": app_item["id"], "label": edge_label})
-            continue
-
-        if "allLicensedUsersAssignmentTarget" in target_type:
-            v_id = f"virtual_all_users::{app_item['id']}"
-            add_node({"id": v_id, "label": "All licensed users", "type": "user", "data": {"id": v_id, "displayName": "All licensed users"}})
-            edges.append({"source": v_id, "target": app_item["id"], "label": "assigned to"})
-            continue
-
-        if "allDevicesAssignmentTarget" in target_type:
-            v_id = f"virtual_all_devices::{app_item['id']}"
-            add_node({"id": v_id, "label": "All devices", "type": "device", "data": {"id": v_id, "displayName": "All devices"}})
-            edges.append({"source": v_id, "target": app_item["id"], "label": "assigned to"})
-            continue
-
-    return jsonify({"nodes": nodes, "edges": edges})
-
-
-# ── API: CA policy map ───────────────────────────────────────────────────────
-
-@app.route("/api/map/ca_policy/<policy_id>")
-@login_required
-def ca_policy_map(policy_id):
-    token = _get_token_from_cache()
-    if not token:
-        return jsonify({"error": "Session expired"}), 401
-
-    nodes, edges, node_ids = [], [], set()
-
-    def add_node(n):
-        if n["id"] not in node_ids:
-            node_ids.add(n["id"])
-            nodes.append(n)
-
-    def clean(obj):
-        return {k: v for k, v in obj.items() if not k.startswith("@")}
-
-    policy = graph_get(
-        f"/identity/conditionalAccessPolicies/{policy_id}?$select=id,displayName,state,conditions,grantControls,sessionControls",
-        token,
-    )
-    if not policy or "error" in policy:
-        return jsonify({"error": "CA policy not found"}), 404
-
-    add_node({"id": policy["id"], "label": policy.get("displayName", "CA Policy"), "type": "ca_policy", "data": clean(policy)})
-
-    users_cond = policy.get("conditions", {}).get("users", {})
-    apps_cond = policy.get("conditions", {}).get("applications", {})
-
-    for group_id in users_cond.get("includeGroups", [])[:120]:
-        group = graph_get(
-            f"/groups/{group_id}?$select=id,displayName,description,groupTypes,securityEnabled,mailEnabled",
-            token,
-        )
-        if not group or "error" in group:
-            continue
-        add_node({"id": group["id"], "label": group.get("displayName", "Group"), "type": "group", "data": clean(group)})
-        edges.append({"source": group["id"], "target": policy["id"], "label": "included in"})
-
-    for app_client_id in apps_cond.get("includeApplications", [])[:120]:
-        sp = graph_get(
-            f"/servicePrincipals?$filter=appId eq '{app_client_id}'&$select=id,displayName,appId,publisherName,servicePrincipalType&$top=1",
-            token,
-        )
-        candidates = sp.get("value", []) if sp and "value" in sp else []
-        if not candidates:
-            continue
-        app_sp = candidates[0]
-        add_node({"id": app_sp["id"], "label": app_sp.get("displayName", "App"), "type": "app", "data": clean(app_sp)})
-        edges.append({"source": app_sp["id"], "target": policy["id"], "label": "included in"})
-
-    return jsonify({"nodes": nodes, "edges": edges})
-
-
-# ── API: group map ────────────────────────────────────────────────────────────
 
 @app.route("/api/map/group/<group_id>")
 @login_required
 def group_map(group_id):
-    token = _get_token_from_cache()
-    if not token:
-        return jsonify({"error": "Session expired"}), 401
-
-    nodes, edges, node_ids = [], [], set()
-
-    def add_node(n):
-        if n["id"] not in node_ids:
-            node_ids.add(n["id"])
-            nodes.append(n)
-
-    def clean(obj):
-        return {k: v for k, v in obj.items() if not k.startswith("@")}
-
-    group = graph_get(
-        f"/groups/{group_id}?$select=id,displayName,description,groupTypes,securityEnabled,mailEnabled",
-        token,
-    )
-    if not group or "error" in group:
-        return jsonify({"error": "Group not found"}), 404
-
-    add_node({"id": group["id"], "label": group.get("displayName", "?"), "type": "group", "data": clean(group)})
-
-    for m in graph_get_all(
-        f"/groups/{group_id}/members?$select=id,displayName,userPrincipalName,jobTitle&$top=50",
-        token, max_items=50,
-    ):
-        if "#microsoft.graph.user" in m.get("@odata.type", "") or "userPrincipalName" in m:
-            add_node({"id": m["id"], "label": m.get("displayName", "?"), "type": "user", "data": clean(m)})
-            edges.append({"source": m["id"], "target": group["id"], "label": "member of"})
-
-    for assignment in graph_get_all(f"/groups/{group_id}/appRoleAssignments", token, max_items=50):
-        sp_id = assignment.get("resourceId")
-        if not sp_id or sp_id in node_ids:
-            continue
-        sp = graph_get(
-            f"/servicePrincipals/{sp_id}?$select=id,displayName,appId,description,servicePrincipalType,publisherName",
-            token,
-        )
-        if sp and "error" not in sp:
-            add_node({"id": sp["id"], "label": sp.get("displayName", "App"), "type": "app", "data": clean(sp)})
-            edges.append({"source": group["id"], "target": sp["id"], "label": "access to"})
-
-    for app_link in get_intune_group_app_index(token, [group_id]).get(group_id, []):
-        app_obj = app_link["app"]
-        if app_obj["id"] not in node_ids:
-            add_node({"id": app_obj["id"], "label": app_obj.get("displayName", "Intune app"), "type": "app", "data": clean(app_obj)})
-        edges.append({"source": group["id"], "target": app_obj["id"], "label": app_link["edge_label"]})
-
-    for policy in graph_get_all(
-        "/identity/conditionalAccessPolicies?$select=id,displayName,state,conditions,grantControls",
-        token, max_items=200,
-    ):
-        cond = policy.get("conditions", {})
-        u_cond = cond.get("users", {})
-        inc_groups = u_cond.get("includeGroups", [])
-        exc_groups = u_cond.get("excludeGroups", [])
-        if group_id in inc_groups and group_id not in exc_groups:
-            add_node({"id": policy["id"], "label": policy.get("displayName", "CA Policy"), "type": "ca_policy", "data": clean(policy)})
-            edges.append({"source": group["id"], "target": policy["id"], "label": "affected by"})
-
+    token = auth_engine.get_token(session)
+    nodes, edges, error = GroupMapEngine.build(group_id, token)
+    
+    if error:
+        return jsonify(error), 404
+    
     return jsonify({"nodes": nodes, "edges": edges})
 
 
-# ── API: object details ────────────────────────────────────────────────────────
+@app.route("/api/map/app/<app_id>")
+@login_required
+def app_map(app_id):
+    token = auth_engine.get_token(session)
+    nodes, edges, error = AppMapEngine.build(app_id, token)
+    
+    if error:
+        return jsonify(error), 404
+    
+    return jsonify({"nodes": nodes, "edges": edges})
+
+
+@app.route("/api/map/ca_policy/<policy_id>")
+@login_required
+def ca_policy_map(policy_id):
+    token = auth_engine.get_token(session)
+    nodes, edges, error = CAMapEngine.build(policy_id, token)
+    
+    if error:
+        return jsonify(error), 404
+    
+    return jsonify({"nodes": nodes, "edges": edges})
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# Routes: Details & Photos
+# ────────────────────────────────────────────────────────────────────────────
 
 @app.route("/api/details/<object_type>/<object_id>")
 @login_required
 def get_details(object_type, object_id):
-    token = _get_token_from_cache()
-    if not token:
-        return jsonify({"error": "Session expired"}), 401
-
+    token = auth_engine.get_token(session)
+    
     endpoints = {
-        "user":      f"/users/{object_id}",
-        "group":     f"/groups/{object_id}",
-        "device":    f"/devices/{object_id}",
-        "app":       f"/deviceAppManagement/mobileApps/{object_id}",
+        "user": f"/users/{object_id}",
+        "group": f"/groups/{object_id}",
+        "device": f"/devices/{object_id}",
+        "app": f"/deviceAppManagement/mobileApps/{object_id}",
         "ca_policy": f"/identity/conditionalAccessPolicies/{object_id}",
     }
-    ep = endpoints.get(object_type)
-    if not ep:
+    
+    if object_type not in endpoints:
         return jsonify({"error": "Invalid object type"}), 400
-
-    result = graph_get(ep, token)
+    
+    from services.graph_service import GraphService
+    result = GraphService.get(endpoints[object_type], token)
+    
     if not result:
         return jsonify({"error": "Object not found"}), 404
     if "error" in result:
         return jsonify(result), 502
+    
     return jsonify(result)
 
 
 @app.route("/api/photo/user/<user_id>")
 @login_required
 def get_user_photo(user_id):
-    """Fetch user profile photo as base64-encoded data URL"""
-    token = _get_token_from_cache()
-    if not token:
-        return jsonify({"error": "Session expired"}), 401
-    
-    try:
-        headers = {"Authorization": f"Bearer {token}"}
-        resp = requests.get(
-            f"{GRAPH_BASE}/users/{user_id}/photo/$value",
-            headers=headers,
-            timeout=10
-        )
-        if resp.status_code == 200:
-            data_b64 = base64.b64encode(resp.content).decode("utf-8")
-            return jsonify({"photo": f"data:image/jpeg;base64,{data_b64}"})
-        else:
-            return jsonify({"photo": None})
-    except Exception as e:
-        return jsonify({"photo": None, "error": str(e)})
+    token = auth_engine.get_token(session)
+    photo = PhotoService.get_user_photo(user_id, token)
+    return jsonify({"photo": photo})
 
 
 @app.route("/api/photo/group/<group_id>")
 @login_required
 def get_group_photo(group_id):
-    """Fetch group photo as base64-encoded data URL"""
-    token = _get_token_from_cache()
-    if not token:
-        return jsonify({"error": "Session expired"}), 401
-    
-    try:
-        headers = {"Authorization": f"Bearer {token}"}
-        resp = requests.get(
-            f"{GRAPH_BASE}/groups/{group_id}/photo/$value",
-            headers=headers,
-            timeout=10
-        )
-        if resp.status_code == 200:
-            data_b64 = base64.b64encode(resp.content).decode("utf-8")
-            return jsonify({"photo": f"data:image/jpeg;base64,{data_b64}"})
-        else:
-            return jsonify({"photo": None})
-    except Exception as e:
-        return jsonify({"photo": None, "error": str(e)})
+    token = auth_engine.get_token(session)
+    photo = PhotoService.get_group_photo(group_id, token)
+    return jsonify({"photo": photo})
 
 
-@app.route("/api/me")
-@login_required
-def me():
-    return jsonify(session.get("user", {}))
-
+# ────────────────────────────────────────────────────────────────────────────
+# Entry Point
+# ────────────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    app.run(debug=_env_bool("FLASK_DEBUG", False), port=_env_int("PORT", 5000))
+    app.run(debug=Config.DEBUG, port=Config.PORT)
