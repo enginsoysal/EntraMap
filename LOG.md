@@ -3,11 +3,17 @@
 ## 0.4.0 - 2026-04-22
 
 - Bumped application version to 0.4.0
-- Added a broad group delete impact workflow with executive go/no-go guidance, top evidence, remediation guidance, owner suggestions, checklist tracking, and CSV export
+- Added a major group delete impact workflow for groups instead of only graph exploration
+- Added executive go/no-go guidance with risk scoring, top evidence, coverage score, confidence, and constrained-domain visibility
+- Added domain-by-domain remediation guidance and owner suggestions for follow-up actions before delete
+- Added per-group remediation checklist tracking with saved progress, open-actions filtering, reset behavior, completion state, and ready-to-delete indication
+- Added JSON and CSV export for group impact evidence
+- Expanded dependency coverage across Conditional Access, Intune app targeting, enterprise apps, IAM/PIM role assignments, Administrative Units, group nesting, group licensing, Entitlement Management, M365 workloads, and Exchange signals
 - Added API Permissions and Changelog tabs to the signed-out auth modal
 - Added server-rendered changelog content from `LOG.md` directly into the front page modal
-- Refreshed the popup onboarding content in Features and How To Use to match the current product surface
-- Added an idle session timeout warning with a visible 60-second countdown and automatic sign-out
+- Refreshed the popup onboarding content in Sign In, Features, and How To Use to match the current operational product surface
+- Added an idle session timeout warning with a visible 60-second countdown, red pulsing final seconds, reset-on-activity behavior, and automatic sign-out
+- Continued auth and UX hardening around popup sign-in, signed-out onboarding, and operational safety
 
 ## 0.3.16 - 2026-04-22
 

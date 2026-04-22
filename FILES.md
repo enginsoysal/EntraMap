@@ -12,6 +12,7 @@ Main Flask application.
 Responsibilities:
 - Initializes Flask app and session configuration
 - Registers authentication, search, details, map, health, and group impact routes
+- Loads and renders the signed-out changelog content from `LOG.md`
 - Delegates business logic to engines and services
 - Applies response security headers and compression
 
@@ -86,6 +87,7 @@ Responsibilities:
 - Calculates and renders operational insights
 - Supports graph export and read-only helper actions
 - Manages popup auth tabs, permission accordion, signed-out frontend mode, and session timeout behavior
+- Renders group impact executive guidance, remediation workflows, checklist persistence, and export actions
 - Displays notifications and loading states
 
 ### static/brand/logo.svg
@@ -115,6 +117,10 @@ Independent feature engines (auth, search types, map types).
 
 Notable current additions:
 - `group_impact_engine.py` performs pre-delete dependency analysis for groups across policies, apps, roles, licensing, governance, and collaboration workloads.
+
+Current notable product surface built on top of these engines:
+- search and relationship mapping for users, groups, devices, Intune apps, and Conditional Access policies
+- group delete impact analysis with multi-domain evidence collection and completeness reporting
 
 ### templates/
 Jinja2 templates rendered by Flask.
