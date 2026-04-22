@@ -57,7 +57,7 @@
             position: relative;
             z-index: 10;
             width: 100%;
-            max-width: 400px;
+            max-width: 580px;
             padding: 0 16px;
         }
 
@@ -201,6 +201,132 @@
         }
         .footer-note a { color: var(--muted); }
 
+        /* ── Tabs ── */
+        .tab-nav {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 28px;
+            flex-wrap: wrap;
+        }
+        .tab-btn {
+            padding: 5px 14px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--muted);
+            font-size: 0.78rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.15s, color 0.15s, border-color 0.15s;
+            font-family: inherit;
+        }
+        .tab-btn:hover {
+            border-color: #4b6cb7;
+            color: var(--text);
+        }
+        .tab-btn.active {
+            background: rgba(59,130,246,.15);
+            border-color: var(--blue);
+            color: var(--text);
+        }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        /* ── How To Use ── */
+        .howto-steps {
+            display: grid;
+            gap: 12px;
+            text-align: left;
+        }
+        .howto-step {
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+        .howto-step-num {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: rgba(59,130,246,.18);
+            border: 1px solid rgba(59,130,246,.35);
+            color: var(--blue);
+            font-size: 0.72rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+        .howto-step-text {
+            font-size: 0.82rem;
+            color: var(--muted);
+            line-height: 1.55;
+        }
+        .howto-step-text strong { color: var(--text); }
+
+        /* ── API Permissions accordion ── */
+        .perm-list {
+            display: grid;
+            gap: 6px;
+        }
+        .perm-item {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .perm-toggle {
+            width: 100%;
+            background: rgba(255,255,255,.02);
+            border: none;
+            color: var(--text);
+            font-family: inherit;
+            font-size: 0.82rem;
+            font-weight: 600;
+            text-align: left;
+            padding: 10px 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            transition: background 0.15s;
+        }
+        .perm-toggle:hover { background: rgba(59,130,246,.08); }
+        .perm-toggle.open { background: rgba(59,130,246,.1); color: #93c5fd; }
+        .perm-chevron {
+            font-size: 0.7rem;
+            transition: transform 0.2s;
+            flex-shrink: 0;
+            color: var(--muted);
+        }
+        .perm-toggle.open .perm-chevron { transform: rotate(180deg); }
+        .perm-body {
+            display: none;
+            padding: 9px 12px 11px;
+            font-size: 0.79rem;
+            color: var(--muted);
+            line-height: 1.6;
+            border-top: 1px solid var(--border);
+            background: rgba(255,255,255,.01);
+        }
+        .perm-body.open { display: block; }
+        .perm-tag {
+            display: inline-block;
+            font-size: 0.68rem;
+            padding: 1px 7px;
+            border-radius: 999px;
+            margin-left: 6px;
+            vertical-align: middle;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+        }
+        .perm-tag.required {
+            background: rgba(239,68,68,.12);
+            border: 1px solid rgba(239,68,68,.3);
+            color: #fca5a5;
+        }
+
         .login-page-footer {
             position: fixed;
             left: 0;
@@ -269,56 +395,182 @@
             </div>
         </div>
 
-        <!-- Tagline -->
-        <p class="tagline">
-            Visualize users, devices, groups, apps, and Conditional Access policies from your tenant in a single view.
-        </p>
-
-        <!-- Error banner -->
-        {% if error %}
-        <div class="error-banner">
-            <i class="fas fa-exclamation-circle"></i>
-            <span>{{ error }}</span>
+        <!-- Tab nav -->
+        <div class="tab-nav">
+            <button class="tab-btn active" data-tab="signin">Sign In</button>
+            <button class="tab-btn" data-tab="features">Features</button>
+            <button class="tab-btn" data-tab="howto">How To Use</button>
+            <button class="tab-btn" data-tab="permissions">API Permissions</button>
         </div>
-        {% endif %}
 
-        <!-- Sign in button -->
-        <a href="/auth/signin?popup=1" class="btn-microsoft js-ms-signin" data-popup-inline="1" onclick="const w=560,h=720,l=Math.max(0,Math.round((screen.width-w)/2)),t=Math.max(0,Math.round((screen.height-h)/2)),f=['width='+w,'height='+h,'left='+l,'top='+t,'popup=yes','resizable=yes','scrollbars=yes','toolbar=no','menubar=no','status=no','location=yes'].join(','); const p=window.open('about:blank','entramapSignIn',f); if(!p){ alert('Please allow popups for EntraMap sign-in.'); return false; } try{ p.document.title='EntraMap Sign-in'; p.document.body.innerHTML='Opening Microsoft sign-in...'; }catch(e){} p.location.replace(this.href); p.focus(); return false;">
-            <!-- Official Microsoft SVG logo -->
-            <svg class="ms-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 21 21">
-                <rect x="1"  y="1"  width="9" height="9" fill="#f25022"/>
-                <rect x="11" y="1"  width="9" height="9" fill="#7fba00"/>
-                <rect x="1"  y="11" width="9" height="9" fill="#00a4ef"/>
-                <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
-            </svg>
-            Sign in with Microsoft
-        </a>
+        <!-- ─── Tab: Sign In ─── -->
+        <div class="tab-panel active" id="tab-signin">
+            <p class="tagline">
+                Visualize users, devices, groups, apps, and Conditional Access policies from your tenant in a single view.
+            </p>
 
-        <!-- Admin consent note -->
-        <div class="divider">what you need</div>
+            {% if error %}
+            <div class="error-banner">
+                <i class="fas fa-exclamation-circle"></i>
+                <span>{{ error }}</span>
+            </div>
+            {% endif %}
 
-        <div class="features">
-            <div class="feature">
-                <i class="fas fa-check-circle"></i>
-                <span>Microsoft 365 or Azure work account</span>
+            <a href="/auth/signin?popup=1" class="btn-microsoft js-ms-signin" data-popup-inline="1" onclick="const w=560,h=720,l=Math.max(0,Math.round((screen.width-w)/2)),t=Math.max(0,Math.round((screen.height-h)/2)),f=['width='+w,'height='+h,'left='+l,'top='+t,'popup=yes','resizable=yes','scrollbars=yes','toolbar=no','menubar=no','status=no','location=yes'].join(','); const p=window.open('about:blank','entramapSignIn',f); if(!p){ alert('Please allow popups for EntraMap sign-in.'); return false; } try{ p.document.title='EntraMap Sign-in'; p.document.body.innerHTML='Opening Microsoft sign-in...'; }catch(e){} p.location.replace(this.href); p.focus(); return false;">
+                <svg class="ms-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 21 21">
+                    <rect x="1"  y="1"  width="9" height="9" fill="#f25022"/>
+                    <rect x="11" y="1"  width="9" height="9" fill="#7fba00"/>
+                    <rect x="1"  y="11" width="9" height="9" fill="#00a4ef"/>
+                    <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+                </svg>
+                Sign in with Microsoft
+            </a>
+
+            <div class="divider">what you need</div>
+
+            <div class="features">
+                <div class="feature">
+                    <i class="fas fa-check-circle"></i>
+                    <span>Microsoft 365 or Azure work account</span>
+                </div>
+                <div class="feature">
+                    <i class="fas fa-check-circle"></i>
+                    <span>First sign-in requires a Global Admin or Privileged Role Admin</span>
+                </div>
+                <div class="feature">
+                    <i class="fas fa-check-circle"></i>
+                    <span>After one-time tenant consent, all users in that tenant can sign in</span>
+                </div>
+                <div class="feature">
+                    <i class="fas fa-check-circle"></i>
+                    <span>No extra Azure configuration required</span>
+                </div>
             </div>
-            <div class="feature">
-                <i class="fas fa-check-circle"></i>
-                <span>First sign-in requires a Global Admin or Privileged Role Admin</span>
+        </div>
+
+        <!-- ─── Tab: Features ─── -->
+        <div class="tab-panel" id="tab-features">
+            <p class="tagline">Everything EntraMap gives you — read-only, live from your tenant.</p>
+            <div class="features" style="grid-template-columns:1fr 1fr; gap:12px;">
+                <div class="feature"><i class="fas fa-sitemap"></i><span><strong style="color:var(--text)">Identity Map</strong> — visualize users, groups, devices, and apps as an interactive graph</span></div>
+                <div class="feature"><i class="fas fa-shield-halved"></i><span><strong style="color:var(--text)">Conditional Access</strong> — map every CA policy with include/exclude scope breakdown</span></div>
+                <div class="feature"><i class="fas fa-laptop"></i><span><strong style="color:var(--text)">Device Risk</strong> — surface non-compliant and unmanaged devices with risk signals</span></div>
+                <div class="feature"><i class="fas fa-cubes"></i><span><strong style="color:var(--text)">App Coverage</strong> — show enterprise app role assignments and access paths</span></div>
+                <div class="feature"><i class="fas fa-triangle-exclamation"></i><span><strong style="color:var(--text)">Group Impact</strong> — analyse cross-domain dependencies before deleting a group</span></div>
+                <div class="feature"><i class="fas fa-file-arrow-down"></i><span><strong style="color:var(--text)">Export</strong> — download impact reports as JSON or CSV</span></div>
+                <div class="feature"><i class="fas fa-lock"></i><span><strong style="color:var(--text)">100% Read-only</strong> — no write operations, no data stored outside your session</span></div>
+                <div class="feature"><i class="fas fa-bolt"></i><span><strong style="color:var(--text)">Live data</strong> — pulled directly from Microsoft Graph on demand</span></div>
             </div>
-            <div class="feature">
-                <i class="fas fa-check-circle"></i>
-                <span>After one-time tenant consent, all users in that tenant can sign in</span>
+        </div>
+
+        <!-- ─── Tab: How To Use ─── -->
+        <div class="tab-panel" id="tab-howto">
+            <p class="tagline">Up and running in under two minutes.</p>
+            <div class="howto-steps">
+                <div class="howto-step">
+                    <div class="howto-step-num">1</div>
+                    <div class="howto-step-text"><strong>Sign in with Microsoft</strong> — use any work or school account. The first sign-in from your tenant triggers a one-time admin consent screen.</div>
+                </div>
+                <div class="howto-step">
+                    <div class="howto-step-num">2</div>
+                    <div class="howto-step-text"><strong>Choose an entity type</strong> — select Users, Groups, Devices, Apps, or Conditional Access from the left rail after sign-in.</div>
+                </div>
+                <div class="howto-step">
+                    <div class="howto-step-num">3</div>
+                    <div class="howto-step-text"><strong>Search and map</strong> — type a name or filter to find objects. Click a result to draw its dependency graph on the canvas.</div>
+                </div>
+                <div class="howto-step">
+                    <div class="howto-step-num">4</div>
+                    <div class="howto-step-text"><strong>Explore the graph</strong> — click any node to see its detail pane. Use the Impact tab on a group to run a pre-delete dependency check.</div>
+                </div>
+                <div class="howto-step">
+                    <div class="howto-step-num">5</div>
+                    <div class="howto-step-text"><strong>Export findings</strong> — download a JSON or CSV impact report from the group detail panel for offline review or ticket input.</div>
+                </div>
             </div>
-            <div class="feature">
-                <i class="fas fa-check-circle"></i>
-                <span>No extra Azure configuration required</span>
+        </div>
+
+        <!-- ─── Tab: API Permissions ─── -->
+        <div class="tab-panel" id="tab-permissions">
+            <p class="tagline">EntraMap requests these delegated Graph permissions. All are read-only. Click a permission to see why it is needed.</p>
+            <div class="perm-list">
+
+                <div class="perm-item">
+                    <button class="perm-toggle" type="button">User.Read <span class="perm-tag required">required</span><span class="perm-chevron">&#9660;</span></button>
+                    <div class="perm-body">Reads the signed-in user's basic profile (display name, email, photo). Required to show who is logged in and to anchor the session to a real identity.</div>
+                </div>
+
+                <div class="perm-item">
+                    <button class="perm-toggle" type="button">User.ReadBasic.All <span class="perm-tag required">required</span><span class="perm-chevron">&#9660;</span></button>
+                    <div class="perm-body">Reads the basic profile (name, email, job title) of all users in the tenant. Required to display user nodes on the identity map and support user search.</div>
+                </div>
+
+                <div class="perm-item">
+                    <button class="perm-toggle" type="button">Group.Read.All <span class="perm-tag required">required</span><span class="perm-chevron">&#9660;</span></button>
+                    <div class="perm-body">Reads all groups, their members, owners, and settings. Required to map groups, group membership, nested groups, and group-based license assignments.</div>
+                </div>
+
+                <div class="perm-item">
+                    <button class="perm-toggle" type="button">Device.Read.All <span class="perm-tag required">required</span><span class="perm-chevron">&#9660;</span></button>
+                    <div class="perm-body">Reads all devices registered in the tenant including Intune-enrolled and Azure AD joined devices. Required for the device map and compliance/risk overlays.</div>
+                </div>
+
+                <div class="perm-item">
+                    <button class="perm-toggle" type="button">Application.Read.All <span class="perm-tag required">required</span><span class="perm-chevron">&#9660;</span></button>
+                    <div class="perm-body">Reads all enterprise applications and app registrations including service principals and app role assignments. Required to map application access paths and detect over-privileged roles.</div>
+                </div>
+
+                <div class="perm-item">
+                    <button class="perm-toggle" type="button">DeviceManagementApps.Read.All <span class="perm-tag required">required</span><span class="perm-chevron">&#9660;</span></button>
+                    <div class="perm-body">Reads Intune-managed application assignments including target groups. Required to check which groups are targeted by Intune app deployments in the group deletion impact analysis.</div>
+                </div>
+
+                <div class="perm-item">
+                    <button class="perm-toggle" type="button">Policy.Read.All <span class="perm-tag required">required</span><span class="perm-chevron">&#9660;</span></button>
+                    <div class="perm-body">Reads all Conditional Access policies including named locations and authentication strength definitions. Required to map CA policy coverage and show which users and groups are in scope.</div>
+                </div>
+
+                <div class="perm-item">
+                    <button class="perm-toggle" type="button">RoleManagement.Read.Directory <span class="perm-tag required">required</span><span class="perm-chevron">&#9660;</span></button>
+                    <div class="perm-body">Reads directory role assignments and role definitions including PIM eligibility and active assignments. Required to show privileged roles held by users, groups, and service principals.</div>
+                </div>
+
+                <div class="perm-item">
+                    <button class="perm-toggle" type="button">Organization.Read.All <span class="perm-tag required">required</span><span class="perm-chevron">&#9660;</span></button>
+                    <div class="perm-body">Reads tenant-level organisation details and assigned license SKUs. Required to resolve group-based license assignments to human-readable product names such as Microsoft 365 E3.</div>
+                </div>
+
+                <div class="perm-item">
+                    <button class="perm-toggle" type="button">EntitlementManagement.Read.All <span class="perm-tag required">required</span><span class="perm-chevron">&#9660;</span></button>
+                    <div class="perm-body">Reads access packages, assignment policies, and entitlement catalogs. Required to detect whether a group is referenced in Identity Governance entitlement policies before deletion.</div>
+                </div>
+
+                <div class="perm-item">
+                    <button class="perm-toggle" type="button">Team.ReadBasic.All <span class="perm-tag required">required</span><span class="perm-chevron">&#9660;</span></button>
+                    <div class="perm-body">Reads basic information about Microsoft Teams that the signed-in user can access. Required to detect M365 group-backed Teams workloads as blocking dependencies in the deletion impact analysis.</div>
+                </div>
+
+                <div class="perm-item">
+                    <button class="perm-toggle" type="button">Sites.Read.All <span class="perm-tag required">required</span><span class="perm-chevron">&#9660;</span></button>
+                    <div class="perm-body">Reads SharePoint site metadata across the tenant. Required to detect groups with associated SharePoint team sites and flag them as active collaboration workloads before deletion.</div>
+                </div>
+
+                <div class="perm-item">
+                    <button class="perm-toggle" type="button">Tasks.Read <span class="perm-tag required">required</span><span class="perm-chevron">&#9660;</span></button>
+                    <div class="perm-body">Reads Planner tasks and plans. Required to detect groups that own Planner plans so that plan ownership can be migrated before the group is deleted.</div>
+                </div>
+
+                <div class="perm-item">
+                    <button class="perm-toggle" type="button">Directory.Read.All <span class="perm-tag required">required</span><span class="perm-chevron">&#9660;</span></button>
+                    <div class="perm-body">Reads broad directory objects including administrative units, role templates, and object metadata. Required for the full identity map and to support administrative unit scope detection in the deletion impact analysis.</div>
+                </div>
+
             </div>
         </div>
 
         <p class="footer-note">
-            Protected by Microsoft Entra ID &nbsp;·&nbsp;
-            Version {{ version }} &nbsp;·&nbsp; Your data stays within your session
+            Protected by Microsoft Entra ID &nbsp;&middot;&nbsp;
+            Version {{ version }} &nbsp;&middot;&nbsp; Your data stays within your session
         </p>
 
     </div>
@@ -334,5 +586,34 @@
     </a>
 </footer>
 
+<script>
+    // Tab switching
+    document.querySelectorAll(".tab-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const target = btn.getAttribute("data-tab");
+            document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+            document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+            btn.classList.add("active");
+            const panel = document.getElementById("tab-" + target);
+            if (panel) panel.classList.add("active");
+        });
+    });
+
+    // Accordion — only one open at a time
+    document.querySelectorAll(".perm-toggle").forEach(toggle => {
+        toggle.addEventListener("click", () => {
+            const isOpen = toggle.classList.contains("open");
+            // Close all
+            document.querySelectorAll(".perm-toggle").forEach(t => t.classList.remove("open"));
+            document.querySelectorAll(".perm-body").forEach(b => b.classList.remove("open"));
+            // Open clicked if it was closed
+            if (!isOpen) {
+                toggle.classList.add("open");
+                const body = toggle.nextElementSibling;
+                if (body) body.classList.add("open");
+            }
+        });
+    });
+</script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 # EntraMap
 
-Version 0.3.16
+Version 0.4.0
 
 EntraMap is a Flask web application that signs users in with Microsoft Entra ID and visualizes tenant relationships as an interactive graph. It helps you explore users, devices, groups, applications, and Conditional Access policies from a single screen.
 
@@ -9,6 +9,9 @@ EntraMap is a Flask web application that signs users in with Microsoft Entra ID 
 - Multi-tenant Microsoft sign-in with delegated Microsoft Graph permissions
 - Homepage-first login popup flow with contextual onboarding tabs
 - Search for users, groups, devices, Intune apps, and Conditional Access policies
+- Group deletion impact analysis across CA, Intune, IAM/PIM, Administrative Units, group nesting, licensing, Entitlement Management, M365 workloads, and Exchange workload signals
+- Coverage transparency with completeness score, constrained-domain reasons, and scan-limit metadata
+- Executive go/no-go delete guidance with top evidence, remediation guidance, owner suggestions, and per-group checklist tracking
 - Interactive graph view powered by Cytoscape.js
 - Relationship mapping for:
   - Users to devices
@@ -20,16 +23,20 @@ EntraMap is a Flask web application that signs users in with Microsoft Entra ID 
 - Double-click drill-down navigation on all supported object types
 - Operational insights panel with quick risk filters
 - JSON export of the current graph for reporting and handover
+- CSV export of group impact analysis for governance and CAB workflows
 - Read-only deep links to Entra portal object pages
-- Frontend Features and How To Use pages embedded in the authentication popup
+- Frontend onboarding tabs embedded in the authentication popup (Sign In, Features, How To Use, API Permissions, Changelog)
+- In-app changelog rendered directly from `LOG.md`
+- Idle session timeout warning with 60-second countdown before auto sign-out
 
-## Latest Changes (0.3.16)
+## Latest Changes (0.4.0)
 
-- Fixed popup sign-in reliability by supporting multiple pending OAuth states in session
-- Added local host canonicalization between `127.0.0.1` and `localhost` to prevent session cookie/state mismatch
-- Improved Intune app search by scanning paginated `mobileApps` inventory and matching by name, publisher, and description
-- Added Microsoft Graph beta fallback for Intune app search and app map retrieval when app types are not exposed in v1.0
-- Added a clear in-app message when an Intune app is found but has no assignment links
+- Added a much broader group delete impact workflow with executive guidance, remediation, owner suggestions, checklist tracking, and CSV export
+- Added API Permissions and Changelog tabs to the signed-out auth modal
+- Added server-rendered changelog content from `LOG.md` to the front page modal
+- Refreshed popup Features and How To Use onboarding content to match the current product surface
+- Added idle-session timeout warning with a visible 60-second countdown before automatic sign-out
+- Continued auth hardening and signed-out UX improvements from the 0.3.x line
 
 ## Release History
 
@@ -63,7 +70,28 @@ Add these delegated permissions:
 - DeviceManagementApps.Read.All
 - Application.Read.All
 - Policy.Read.All
+- RoleManagement.Read.Directory
+- Organization.Read.All
+- EntitlementManagement.Read.All
+- Team.ReadBasic.All
+- Sites.Read.All
+- Tasks.Read
 - Directory.Read.All
+
+Optional (recommended if you want full Group Impact coverage without partial domains):
+
+- AdministrativeUnit.Read.All
+
+Notes:
+
+- RoleManagement.Read.Directory is used for IAM and PIM impact checks.
+- Organization.Read.All improves group-based licensing resolution.
+- EntitlementManagement.Read.All enables Entitlement Management policy coverage.
+- Team.ReadBasic.All improves Teams workload signal coverage.
+- Sites.Read.All improves SharePoint workload signal coverage.
+- Tasks.Read improves Planner workload signal coverage.
+- AdministrativeUnit.Read.All is used for Administrative Unit impact checks.
+- Even with correct Graph permissions, some results can still be partial when the signed-in account lacks sufficient Entra role visibility.
 
 ### Consent Model
 

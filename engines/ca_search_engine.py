@@ -18,7 +18,7 @@ class CASearchEngine:
 
         safe_q = query.replace("'", "''")
         data = GraphService.get(
-            f"/identity/conditionalAccessPolicies?$filter=startswith(displayName,'{safe_q}')"
+            f"/identity/conditionalAccess/policies?$filter=startswith(displayName,'{safe_q}')"
             f"&$select=id,displayName,state&$top={max_results}",
             token,
         )

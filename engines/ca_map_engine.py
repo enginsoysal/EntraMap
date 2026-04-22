@@ -36,7 +36,7 @@ class CAMapEngine:
 
         # Get policy
         policy = GraphService.get(
-            f"/identity/conditionalAccessPolicies/{policy_id}?$select=id,displayName,state,conditions,grantControls,sessionControls",
+            f"/identity/conditionalAccess/policies/{policy_id}?$select=id,displayName,state,conditions,grantControls,sessionControls",
             token,
         )
         if not policy or "error" in policy:

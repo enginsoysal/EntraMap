@@ -1,6 +1,6 @@
 # Files Reference
 
-Version 0.3.16
+Version 0.4.0
 
 This file describes the purpose of each file in the repository.
 
@@ -11,7 +11,7 @@ Main Flask application.
 
 Responsibilities:
 - Initializes Flask app and session configuration
-- Registers authentication, search, details, and map routes
+- Registers authentication, search, details, map, health, and group impact routes
 - Delegates business logic to engines and services
 - Applies response security headers and compression
 
@@ -42,7 +42,8 @@ Responsibilities:
 - Renders the left search panel
 - Renders the operational insights section
 - Renders the graph container
-- Shows auth popup onboarding tabs (Sign In, Features, How To Use) when signed out
+- Shows auth popup onboarding tabs (Sign In, Features, How To Use, API Permissions, Changelog) when signed out
+- Renders session-timeout and disconnect lightboxes
 - Shows current user state and version
 - Loads the CSS and JavaScript assets
 
@@ -66,7 +67,7 @@ Responsibilities:
 Main stylesheet for the signed-in application UI.
 
 Responsibilities:
-- Defines layout, colors, panels, graph toolbar, insight panel, detail panel, and auth popup styles
+- Defines layout, colors, panels, graph toolbar, insight panel, detail panel, auth popup styles, and timeout lightboxes
 - Styles the signed-in header state
 - Styles the search and graph view
 
@@ -84,7 +85,7 @@ Responsibilities:
 - Handles double-click drill-down behavior
 - Calculates and renders operational insights
 - Supports graph export and read-only helper actions
-- Manages popup auth tab behavior and signed-out frontend mode
+- Manages popup auth tabs, permission accordion, signed-out frontend mode, and session timeout behavior
 - Displays notifications and loading states
 
 ### static/brand/logo.svg
@@ -111,6 +112,9 @@ Shared low-level services (Graph communication, session/cache helpers, photos).
 
 ### engines/
 Independent feature engines (auth, search types, map types).
+
+Notable current additions:
+- `group_impact_engine.py` performs pre-delete dependency analysis for groups across policies, apps, roles, licensing, governance, and collaboration workloads.
 
 ### templates/
 Jinja2 templates rendered by Flask.

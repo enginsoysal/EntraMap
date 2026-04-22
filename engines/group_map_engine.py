@@ -17,21 +17,57 @@ class GroupMapEngine:
     """Group map graph building"""
 
     @staticmethod
-    def _get_intune_app_index(token: str, group_ids: List[str]) -> Dict:
-        """Index Intune apps by group"""
-        app_index = {}
-        
-        for group_id in group_ids:
-            apps_for_group = []
+    def _collect_intune_app_links(group_id: str, token: str, base_url: str = "https://graph.microsoft.com/v1.0") -> List[Dict]:
+        """Collect Intune app assignments for a single group from v1.0 or beta."""
+        apps = GraphService.get_all(
+            f"{base_url}/deviceAppManagement/mobileApps?$select=id,displayName,publisher,description,lastModifiedDateTime&$top=100",
+            token,
+            max_items=1200,
+        )
+
+        findings = []
+
+        def collect_for_app(app: Dict) -> List[Dict]:
+            app_id = app.get("id")
+            if not app_id:
+                return []
+
             assignments = GraphService.get_all(
-                f"/deviceAppManagement/mobileApps?$filter=assignments/any(a:a/target/groupId eq '{group_id}')&$top=100",
+                f"{base_url}/deviceAppManagement/mobileApps/{app_id}/assignments?$top=100",
                 token,
                 max_items=100,
             )
-            # Simplified: direct fetch instead of filtering
-            app_index[group_id] = apps_for_group
-        
-        return app_index
+
+            hits = []
+            for assignment in assignments:
+                target = assignment.get("target", {})
+                target_type = (target.get("@odata.type") or "").lower()
+                if target.get("groupId") != group_id:
+                    continue
+
+                hits.append(
+                    {
+                        "app": {
+                            "id": app_id,
+                            "displayName": app.get("displayName", "Intune app"),
+                            "publisher": app.get("publisher", ""),
+                            "description": app.get("description", ""),
+                            "lastModifiedDateTime": app.get("lastModifiedDateTime", ""),
+                        },
+                        "edge_label": "excluded from" if "exclusion" in target_type else "assigned to",
+                    }
+                )
+            return hits
+
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            futures = [executor.submit(collect_for_app, app) for app in apps]
+            for future in as_completed(futures):
+                try:
+                    findings.extend(future.result())
+                except Exception:
+                    pass
+
+        return findings
 
     @staticmethod
     def _clean(obj: Dict) -> Dict:
@@ -101,9 +137,23 @@ class GroupMapEngine:
                 except Exception:
                     pass
 
+        # Intune app assignments
+        intune_links = GroupMapEngine._collect_intune_app_links(group_id, token)
+        if not intune_links:
+            intune_links = GroupMapEngine._collect_intune_app_links(group_id, token, "https://graph.microsoft.com/beta")
+
+        for link in intune_links:
+            app_obj = link.get("app", {})
+            app_id = app_obj.get("id")
+            if not app_id:
+                continue
+            add_node({"id": app_id, "label": app_obj.get("displayName", "Intune app"), "type": "app", "data": GroupMapEngine._clean(app_obj)})
+            if not any(e["source"] == group["id"] and e["target"] == app_id and e["label"] == link.get("edge_label") for e in edges):
+                edges.append({"source": group["id"], "target": app_id, "label": link.get("edge_label", "assigned to")})
+
         # CA policies
         for policy in GraphService.get_all(
-            "/identity/conditionalAccessPolicies?$select=id,displayName,state,conditions,grantControls",
+            "/identity/conditionalAccess/policies?$select=id,displayName,state,conditions,grantControls",
             token,
             max_items=200,
         ):

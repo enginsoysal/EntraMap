@@ -66,11 +66,17 @@ class Config:
         "Application.Read.All",
         "DeviceManagementApps.Read.All",
         "Policy.Read.All",
+        "RoleManagement.Read.Directory",
+        "Organization.Read.All",
+        "EntitlementManagement.Read.All",
+        "Team.ReadBasic.All",
+        "Sites.Read.All",
+        "Tasks.Read",
         "Directory.Read.All",
     ]
 
     # App
-    VERSION = "0.3.16"
+    VERSION = "0.4.0"
 
     @classmethod
     def validate(cls) -> Tuple[bool, str]:

@@ -1,6 +1,6 @@
 "use strict";
 
-const APP_CONTEXT = window.APP_CONTEXT || { signedIn: false, version: "0.3.16" };
+const APP_CONTEXT = window.APP_CONTEXT || { signedIn: false, version: "0.4.0" };
 
 const TYPE_META = {
     user: { label: "User", icon: "fa-user" },
@@ -37,6 +37,15 @@ let lastLoadedId = null;
 let deepRefreshBusy = false;
 let lastTapNodeId = null;
 let lastTapAt = 0;
+let groupImpactRequestId = 0;
+const groupImpactCache = new Map();
+
+const SESSION_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+const SESSION_WARNING_SECONDS = 60;
+let sessionIdleTimer = null;
+let sessionCountdownTimer = null;
+let sessionSecondsLeft = SESSION_WARNING_SECONDS;
+let sessionWarningActive = false;
 
 function getElement(id) {
     return document.getElementById(id);
@@ -142,6 +151,27 @@ function setupAuthOverlayTabs() {
             const key = tab.dataset.authTab;
             tabs.forEach(item => item.classList.toggle("active", item === tab));
             panes.forEach(pane => pane.classList.toggle("d-none", pane.dataset.authPane !== key));
+        });
+    });
+}
+
+function setupAuthPermissionAccordion() {
+    const toggles = document.querySelectorAll(".perm-toggle");
+    const bodies = document.querySelectorAll(".perm-body");
+    toggles.forEach(toggle => {
+        toggle.addEventListener("click", () => {
+            const body = toggle.nextElementSibling;
+            const isOpen = toggle.classList.contains("open");
+
+            toggles.forEach(item => item.classList.remove("open"));
+            bodies.forEach(item => {
+                item.classList.remove("open");
+            });
+
+            if (!isOpen && body) {
+                toggle.classList.add("open");
+                body.classList.add("open");
+            }
         });
     });
 }
@@ -300,7 +330,10 @@ function initCytoscape() {
 
 function clearGraph() {
     if (!cy) return;
+    cy.stop();
     cy.elements().remove();
+    cy.zoom(1);
+    cy.pan({ x: 0, y: 0 });
     activeNodeId = null;
     lastGraphData = null;
     renderRelationshipRail(null);
@@ -319,16 +352,63 @@ function runLayout(animate = true) {
         root = cy.nodes().first();
     }
 
-    cy.layout({
+    const layout = cy.layout({
         name: "breadthfirst",
         roots: root && root.length ? [root.id()] : undefined,
         directed: false,
-        padding: 60,
-        spacingFactor: 1.6,
+        padding: 96,
+        spacingFactor: 1.35,
         animate,
         animationDuration: animate ? 420 : 0,
-        fit: true,
-    }).run();
+        fit: false,
+    });
+
+    layout.on("layoutstop", () => {
+        fitGraphInView();
+    });
+    layout.run();
+}
+
+function fitGraphInView() {
+    if (!cy || !cy.nodes().length) return;
+
+    const graph = getElement("graph");
+    const relationshipRail = getElement("relationship-rail");
+    const detailPanel = getElement("detail-panel");
+
+    const nodeCount = cy.nodes().length;
+    const graphWidth = graph?.clientWidth || cy.width();
+    const graphHeight = graph?.clientHeight || cy.height();
+    const detailInset = detailPanel && !detailPanel.classList.contains("d-none")
+        ? Math.min(420, (detailPanel.offsetWidth || 320) + 24)
+        : 0;
+    const railLift = relationshipRail && !relationshipRail.classList.contains("d-none")
+        ? Math.min(70, (relationshipRail.offsetHeight || 150) * 0.35)
+        : 0;
+    const visibleWidth = Math.max(260, graphWidth - detailInset);
+    const targetCenterX = (visibleWidth / 2);
+    const targetCenterY = (graphHeight / 2) - railLift;
+
+    const bbox = cy.elements().boundingBox();
+    const bboxWidth = Math.max(120, bbox.w || 0);
+    const bboxHeight = Math.max(120, bbox.h || 0);
+    const usableWidth = Math.max(240, visibleWidth - 48);
+    const usableHeight = Math.max(220, graphHeight - 120 - railLift);
+    const rawZoom = Math.min(usableWidth / bboxWidth, usableHeight / bboxHeight) * 0.9;
+
+    const maxComfortZoom = nodeCount <= 8 ? 0.72 : nodeCount <= 20 ? 0.9 : 1.02;
+    const minZoom = typeof cy.minZoom === "function" ? cy.minZoom() : 0.08;
+    const maxZoom = typeof cy.maxZoom === "function" ? cy.maxZoom() : 3.5;
+    const zoom = Math.max(minZoom, Math.min(rawZoom, maxComfortZoom, maxZoom));
+
+    const bboxCenterX = (bbox.x1 + bbox.x2) / 2;
+    const bboxCenterY = (bbox.y1 + bbox.y2) / 2;
+
+    cy.zoom(zoom);
+    cy.pan({
+        x: targetCenterX - (bboxCenterX * zoom),
+        y: targetCenterY - (bboxCenterY * zoom),
+    });
 }
 
 function setActiveNode(nodeId) {
@@ -545,7 +625,7 @@ function renderGraph(data) {
     cy.add(elements);
     lastGraphData = data;
     updateInsights(data);
-    runLayout(true);
+    runLayout(false);
     hydrateGraphPhotos(data.nodes || []);
 
     if (lastLoadedId) {
@@ -553,6 +633,7 @@ function renderGraph(data) {
         if (rootNode && rootNode.length) {
             setActiveNode(lastLoadedId);
             renderDetailPanel(rootNode.data());
+            requestAnimationFrame(() => fitGraphInView());
         }
     }
 }
@@ -657,9 +738,9 @@ async function performSearch(query) {
         const data = await response.json();
 
         if (response.status === 428 && data?.reauth_url) {
-            showToast("Intune permissions vernieuwen...", "info");
+            showToast("Refreshing Intune permissions...", "info");
             window.openEntraMapConsentPopup(data.reauth_url);
-            renderSearchError("Bevestig permissies in het popupvenster en probeer daarna opnieuw.");
+            renderSearchError("Confirm permissions in the popup window and try again.");
             return;
         }
 
@@ -727,6 +808,720 @@ function loadGroupPhoto(groupId) {
         });
 }
 
+function getImpactStatusMeta(summary) {
+    if (!summary) {
+        return { label: "Loading", className: "pending" };
+    }
+    if (summary.riskLevel === "blocked") {
+        return { label: summary.riskLabel || "Blocked", className: "blocked" };
+    }
+    if (summary.riskLevel === "caution") {
+        return { label: summary.riskLabel || "Caution", className: "partial" };
+    }
+    if (summary.partialDomains > 0) {
+        return { label: "Partial", className: "partial" };
+    }
+    return { label: summary.riskLabel || "Safe", className: "safe" };
+}
+
+function renderGroupImpactLoading() {
+    const panel = getElement("group-impact-panel");
+    if (!panel) return;
+    panel.innerHTML = `
+        <div class="gi-head">
+            <div>
+                <div class="gi-kicker">Deletion Impact</div>
+                <div class="gi-title">Checking group dependencies...</div>
+            </div>
+            <span class="gi-state pending">Loading</span>
+        </div>
+        <div class="gi-note">Scanning Conditional Access, Intune, IAM, enterprise apps, and nested groups.</div>
+    `;
+}
+
+function renderGroupImpactError(message) {
+    const panel = getElement("group-impact-panel");
+    if (!panel) return;
+    panel.innerHTML = `
+        <div class="gi-head">
+            <div>
+                <div class="gi-kicker">Deletion Impact</div>
+                <div class="gi-title">Impact check unavailable</div>
+            </div>
+            <span class="gi-state partial">Error</span>
+        </div>
+        <div class="gi-note">${escHtml(message || "Unable to load impact details.")}</div>
+    `;
+}
+
+function setDetailTab(activeTab) {
+    const tabButtons = document.querySelectorAll(".dp-tab");
+    const panes = document.querySelectorAll(".dp-pane");
+    tabButtons.forEach(button => button.classList.toggle("active", button.dataset.dpTab === activeTab));
+    panes.forEach(pane => pane.classList.toggle("d-none", pane.dataset.dpPane !== activeTab));
+}
+
+function bindDetailTabs() {
+    document.querySelectorAll(".dp-tab").forEach(button => {
+        button.addEventListener("click", () => setDetailTab(button.dataset.dpTab || "details"));
+    });
+}
+
+function formatImpactLabel(value) {
+    const raw = String(value || "linked").trim();
+    if (!raw) return "Linked";
+
+    const normalized = raw.replace(/[_-]+/g, " ").toLowerCase();
+    if (normalized === "included scope") return "Included scope";
+    if (normalized === "excluded scope") return "Excluded scope";
+    if (normalized === "app role assignment") return "App role assignment";
+    if (normalized === "role assignment") return "Directory role assignment";
+    if (normalized === "eligible role assignment") return "PIM eligibility";
+    if (normalized === "active pim assignment") return "Active PIM assignment";
+    if (normalized === "administrative unit member") return "Administrative Unit member";
+    if (normalized === "member of group") return "Nested in parent group";
+    if (normalized === "contains group") return "Contains nested group";
+    if (normalized === "group license assignment") return "Group-based license";
+    if (normalized === "entitlement policy scope") return "Entitlement policy scope";
+    if (normalized === "m365 workspace backing group") return "M365 workspace backing group";
+    if (normalized === "teams backed group") return "Teams-connected group";
+    if (normalized === "sharepoint site backing group") return "SharePoint-connected group";
+    if (normalized === "planner plan backing group") return "Planner-connected group";
+    if (normalized === "exchange group mailbox") return "Exchange group mailbox";
+    if (normalized === "exchange conversation history") return "Exchange conversations";
+    if (normalized === "exchange group calendar") return "Exchange group calendar";
+
+    return normalized.replace(/\b\w/g, char => char.toUpperCase());
+}
+
+function getPermissionHintForDomain(domain) {
+    const key = String(domain?.key || "");
+    if (key === "intune_apps") return "Needs DeviceManagementApps.Read.All consent and Intune read visibility";
+    if (key === "conditional_access") return "Needs Policy.Read.All consent and a role that can read CA policies";
+    if (key === "enterprise_apps") return "Needs Application.Read.All consent and directory app read visibility";
+    if (key === "iam_roles" || key === "pim_roles") return "Needs RoleManagement.Read.Directory consent and directory role visibility";
+    if (key === "administrative_units") return "Needs AdministrativeUnit.Read.All consent and AU read visibility";
+    if (key === "group_nesting") return "Needs Group.Read.All consent and group read visibility";
+    if (key === "group_licensing") return "Needs Group.Read.All and Organization.Read.All visibility for license resolution";
+    if (key === "entitlement_management") return "Needs EntitlementManagement.Read.All consent and governance read visibility";
+    if (key === "m365_workloads") return "Needs Team.ReadBasic.All, Sites.Read.All, Tasks.Read and workload visibility";
+    if (key === "exchange_workloads") return "Needs group mailbox/calendar visibility in Exchange workloads";
+    return "Check Graph consent and signed-in role visibility";
+}
+
+function getDomainAccessReason(domain) {
+    const rawDetails = String(domain?.details || "").trim();
+    const fallback = getPermissionHintForDomain(domain);
+    if (!rawDetails) return fallback;
+
+    let detailText = rawDetails;
+    if (rawDetails.startsWith("{")) {
+        try {
+            const parsed = JSON.parse(rawDetails);
+            const graphMessage = parsed?.error?.message;
+            if (graphMessage) detailText = String(graphMessage);
+        } catch (_) {
+            // keep original raw text
+        }
+    }
+
+    // Keep UI compact while still exposing the concrete Graph failure reason.
+    const concise = detailText.length > 180 ? `${detailText.slice(0, 177)}...` : detailText;
+    return `${concise} | ${fallback}`;
+}
+
+function getDomainRemediation(domainKey) {
+    const key = String(domainKey || "");
+    const map = {
+        conditional_access: "Review include/exclude scopes and replace this group in CA policies before deletion.",
+        intune_apps: "Reassign Intune app targets to a replacement group and verify assignment intent.",
+        enterprise_apps: "Move enterprise app role assignments to a successor group or service principal mapping.",
+        iam_roles: "Remove directory role assignments from this group or transfer them to a least-privileged replacement.",
+        pim_roles: "Migrate PIM eligibility/active role assignments to a replacement identity path.",
+        administrative_units: "Remove this group from Administrative Units or update AU scope design.",
+        group_nesting: "Flatten or rewire nested group chains to avoid inherited dependency breakage.",
+        group_licensing: "Reassign group-based licenses before deletion to prevent license loss.",
+        entitlement_management: "Update access package assignment policies to remove references to this group.",
+        m365_workloads: "Validate Teams/SharePoint/Planner ownership and move workload ownership first.",
+        exchange_workloads: "Validate mailbox, conversations, and calendar dependencies in Exchange workloads.",
+    };
+    return map[key] || "Review this domain and replace or remove references before deleting the group.";
+}
+
+function getDomainOwnerSuggestion(domainKey) {
+    const key = String(domainKey || "");
+    const map = {
+        conditional_access: "Identity Security Team",
+        intune_apps: "Endpoint Management Team",
+        enterprise_apps: "Application Owners + IAM Team",
+        iam_roles: "Privileged Access / IAM Team",
+        pim_roles: "Privileged Access / IAM Team",
+        administrative_units: "Directory Governance Team",
+        group_nesting: "Identity Governance Team",
+        group_licensing: "Licensing Operations Team",
+        entitlement_management: "Identity Governance Team",
+        m365_workloads: "M365 Collaboration Team",
+        exchange_workloads: "Exchange Admin Team",
+    };
+    return map[key] || "Identity Operations Team";
+}
+
+function getChecklistStorageKey(groupId) {
+    return `entramap_impact_checklist_${groupId}`;
+}
+
+function getChecklistState(groupId) {
+    if (!groupId) return {};
+    try {
+        const raw = localStorage.getItem(getChecklistStorageKey(groupId));
+        if (!raw) return {};
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === "object" ? parsed : {};
+    } catch (_) {
+        return {};
+    }
+}
+
+function setChecklistState(groupId, state) {
+    if (!groupId) return;
+    try {
+        localStorage.setItem(getChecklistStorageKey(groupId), JSON.stringify(state || {}));
+    } catch (_) {
+    }
+}
+
+function setChecklistItem(groupId, key, checked) {
+    const state = getChecklistState(groupId);
+    state[key] = checked === true;
+    setChecklistState(groupId, state);
+}
+
+function getDomainChecklist(domainKey, domain) {
+    const key = String(domainKey || "");
+    const count = Number(domain?.count || 0);
+    const map = {
+        conditional_access: [
+            "Validate include/exclude scope for this group",
+            "Move policy targeting to replacement group",
+            "Run CA impact simulation before delete",
+        ],
+        intune_apps: [
+            `Reassign ${count} Intune app target(s)`,
+            "Confirm include/exclude assignment intent",
+            "Verify app deployment status after reassignment",
+        ],
+        enterprise_apps: [
+            "Move app role assignments to replacement group",
+            "Validate app sign-in paths after migration",
+        ],
+        iam_roles: [
+            "Remove direct directory role assignments",
+            "Grant replacement group least-privileged roles",
+            "Validate privileged access break-glass path",
+        ],
+        pim_roles: [
+            "Migrate PIM eligibility assignments",
+            "Review active PIM schedule instances",
+        ],
+        administrative_units: [
+            "Remove group from Administrative Units",
+            "Re-check AU scoped administration behavior",
+        ],
+        group_nesting: [
+            "Replace nested parent references",
+            "Replace nested child references",
+            "Validate inheritance chain after update",
+        ],
+        group_licensing: [
+            "Move group-based license assignments",
+            "Validate user license continuity",
+        ],
+        entitlement_management: [
+            "Update access package assignment policies",
+            "Retest access package request flow",
+        ],
+        m365_workloads: [
+            "Reassign Teams/SharePoint/Planner ownership",
+            "Validate collaboration workloads after migration",
+        ],
+        exchange_workloads: [
+            "Verify mailbox and conversation retention path",
+            "Validate calendar dependencies and delegates",
+        ],
+    };
+    return map[key] || ["Validate and remove this dependency before deleting the group"];
+}
+
+function getExecutiveDecision(summary) {
+    const level = String(summary?.riskLevel || "safe");
+    if (level === "blocked") {
+        return {
+            title: "No-Go: Block Delete",
+            className: "blocked",
+            detail: "Blocking dependencies exist. Resolve blockers before deletion.",
+        };
+    }
+    if (level === "caution") {
+        return {
+            title: "Conditional Go",
+            className: "partial",
+            detail: "Proceed only after remediating warnings and validating constrained domains.",
+        };
+    }
+    return {
+        title: "Go",
+        className: "safe",
+        detail: "No direct blockers detected in checked domains.",
+    };
+}
+
+function getTopEvidence(domains, limit = 5) {
+    const evidence = [];
+    domains.forEach(domain => {
+        (domain.findings || []).forEach(item => {
+            evidence.push({
+                domainLabel: domain.label || domain.key || "Domain",
+                severity: item.severity || "warning",
+                impact: formatImpactLabel(item.impact),
+                name: item.name || "Unknown",
+                id: item.id || "",
+            });
+        });
+    });
+
+    evidence.sort((a, b) => {
+        const rank = value => (value === "blocker" ? 0 : 1);
+        return rank(a.severity) - rank(b.severity);
+    });
+    return evidence.slice(0, limit);
+}
+
+function toCsvCell(value) {
+    const text = String(value ?? "");
+    return `"${text.replace(/"/g, '""')}"`;
+}
+
+function focusImpactFinding(targetId, targetName) {
+    if (!cy || !cy.nodes().length) {
+        showToast("No graph loaded", "error");
+        return;
+    }
+
+    let node = null;
+    const rawId = String(targetId || "").trim();
+    const rawName = String(targetName || "").trim().toLowerCase();
+
+    if (rawId) {
+        const byId = cy.getElementById(rawId);
+        if (byId && byId.length) {
+            node = byId;
+        }
+    }
+
+    if (!node && rawName) {
+        const candidates = cy.nodes().filter(n => {
+            const label = String(n.data("fullLabel") || n.data("label") || "").trim().toLowerCase();
+            if (!label) return false;
+            return label === rawName || label.includes(rawName) || rawName.includes(label);
+        });
+        if (candidates && candidates.length) {
+            node = candidates.first();
+        }
+    }
+
+    if (!node || !node.length) {
+        showToast("Object not visible in the current graph", "info");
+        return;
+    }
+
+    setActiveNode(node.id());
+    renderDetailPanel(node.data());
+    cy.animate({ fit: { eles: node.closedNeighborhood(), padding: 90 }, duration: 240 });
+}
+
+function renderGroupImpact(result) {
+    const panel = getElement("group-impact-panel");
+    if (!panel) return;
+
+    const summary = result?.summary || {};
+    const groupId = String(result?.group?.id || "");
+    const status = getImpactStatusMeta(summary);
+    const domains = Array.isArray(result?.domains) ? result.domains : [];
+    const completeness = summary?.completeness || {};
+    const executive = getExecutiveDecision(summary);
+    const sortedDomains = [...domains].sort((left, right) => (right.count || 0) - (left.count || 0));
+    const topDomains = sortedDomains.filter(domain => (domain.count || 0) > 0).slice(0, 10);
+    const partialDomains = sortedDomains.filter(domain => domain.status && domain.status !== "ok");
+    const topEvidence = getTopEvidence(sortedDomains, 5);
+    const checklistState = getChecklistState(groupId);
+
+    const summaryHtml = `
+        <div class="gi-kpis">
+            <div class="gi-kpi"><span>Blockers</span><strong>${summary.blockers || 0}</strong></div>
+            <div class="gi-kpi"><span>Warnings</span><strong>${summary.warnings || 0}</strong></div>
+            <div class="gi-kpi"><span>Domains hit</span><strong>${summary.domainsWithHits || 0}/${summary.domainsChecked || 0}</strong></div>
+            <div class="gi-kpi"><span>Risk score</span><strong>${summary.riskScore || 0}</strong></div>
+            <div class="gi-kpi"><span>Coverage</span><strong>${summary.coverageScore || 0}%</strong></div>
+            <div class="gi-kpi"><span>Confidence</span><strong>${escHtml(summary.confidence || "low")}</strong></div>
+        </div>
+    `;
+
+    const scorePercent = Math.max(0, Math.min(100, Number(summary.riskScore || 0)));
+    const scoreHtml = `
+        <div class="gi-score-wrap">
+            <div class="gi-score-meta">
+                <span>Delete recommendation</span>
+                <strong>${escHtml(summary.riskLabel || "Safe")}</strong>
+            </div>
+            <div class="gi-score-bar"><span style="width:${scorePercent}%"></span></div>
+            <div class="gi-note">${escHtml(summary.recommendation || "No recommendation available.")}</div>
+        </div>
+    `;
+
+    const executiveHtml = `
+        <section class="gi-exec gi-exec-${escHtml(executive.className)}">
+            <div class="gi-exec-head">
+                <span>Executive Decision</span>
+                <strong>${escHtml(executive.title)}</strong>
+            </div>
+            <div class="gi-note">${escHtml(executive.detail)}</div>
+            ${topEvidence.length ? `
+                <ul class="gi-findings gi-exec-list">
+                    ${topEvidence.map(item => `
+                        <li class="gi-finding ${escHtml(item.severity)}">
+                            <span>${escHtml(item.name)}</span>
+                            <small>${escHtml(item.domainLabel)} • ${escHtml(item.impact)}</small>
+                        </li>
+                    `).join("")}
+                </ul>
+            ` : ""}
+        </section>
+    `;
+
+    const domainHtml = topDomains.length
+        ? topDomains.map(domain => {
+            const firstFindings = (domain.findings || []).slice(0, 3).map(item => `
+                <li class="gi-finding clickable ${escHtml(item.severity || "warning")}" data-target-id="${escHtml(item.id || "")}" data-target-name="${escHtml(item.name || "")}">
+                    <span>${escHtml(item.name || "Unknown")}</span>
+                    <small>${escHtml(formatImpactLabel(item.impact))}</small>
+                </li>
+            `).join("");
+            const checklistSteps = getDomainChecklist(domain.key, domain);
+            const domainCheckedCount = checklistSteps.filter((_, index) => checklistState[`${domain.key}:${index}`]).length;
+            const domainAllDone = checklistSteps.length > 0 && domainCheckedCount === checklistSteps.length;
+            const checklistHtml = checklistSteps.map((step, index) => {
+                const itemKey = `${domain.key}:${index}`;
+                const checked = checklistState[itemKey] ? "checked" : "";
+                return `<label class="gi-check-item"><input type="checkbox" data-check-key="${escHtml(itemKey)}" ${checked}> <span>${escHtml(step)}</span></label>`;
+            }).join("");
+
+            return `
+                <section class="gi-domain${domainAllDone ? " gi-domain--complete" : ""}" data-domain-key="${escHtml(domain.key || "")}">
+                    <div class="gi-domain-head">
+                        <span class="gi-domain-label">${escHtml(domain.label || domain.key || "Domain")}</span>
+                        <div class="gi-domain-head-right">
+                            <span class="gi-domain-badge" data-domain-badge="${escHtml(domain.key || "")}">${domainCheckedCount}/${checklistSteps.length}</span>
+                            <span class="gi-domain-count">${domain.count || 0}</span>
+                        </div>
+                    </div>
+                    <ul class="gi-findings">${firstFindings}</ul>
+                    <div class="gi-remedy">${escHtml(getDomainRemediation(domain.key))}</div>
+                    <div class="gi-owner">Owner to contact: ${escHtml(getDomainOwnerSuggestion(domain.key))}</div>
+                    <div class="gi-checklist">${checklistHtml}</div>
+                </section>
+            `;
+        }).join("")
+        : `<div class="gi-note">No direct blockers or warnings were detected for this group in the checked domains.</div>`;
+
+    const partialNote = summary.partialDomains > 0
+        ? `<div class="gi-note">Impact is partial. The domains below could not be fully read.</div>`
+        : "";
+
+    const partialDetails = partialDomains.length
+        ? `
+            <section class="gi-domain gi-domain-partial">
+                <div class="gi-domain-head">
+                    <span class="gi-domain-label">Access limitations detected</span>
+                    <span class="gi-domain-count">${partialDomains.length}</span>
+                </div>
+                <ul class="gi-findings">
+                    ${partialDomains.map(domain => `
+                        <li class="gi-finding warning">
+                            <span>${escHtml(domain.label || domain.key || "Domain")}</span>
+                            <small>${escHtml(getDomainAccessReason(domain))}</small>
+                        </li>
+                    `).join("")}
+                </ul>
+            </section>
+        `
+        : "";
+
+    const constrained = Array.isArray(completeness.constrainedDomains) ? completeness.constrainedDomains : [];
+    const checklistKeys = Object.keys(checklistState);
+    const checklistDone = checklistKeys.filter(key => checklistState[key]).length;
+    const checklistTotal = topDomains.reduce((total, domain) => total + getDomainChecklist(domain.key, domain).length, 0);
+    const completenessHtml = `
+        <section class="gi-score-wrap">
+            <div class="gi-score-meta">
+                <span>Coverage Detail</span>
+                <strong>${completeness.domainsOk || 0}/${completeness.domainsTotal || summary.domainsChecked || 0} domains readable</strong>
+            </div>
+            <div class="gi-note">Constrained domains: ${constrained.length}</div>
+            ${constrained.length ? `<div class="gi-note">${escHtml(constrained.map(item => item.label).join(", "))}</div>` : ""}
+            <div class="gi-note gi-check-progress">Checklist progress: ${Math.min(checklistDone, checklistTotal)}/${checklistTotal}</div>
+        </section>
+    `;
+
+    panel.innerHTML = `
+        <div class="gi-head">
+            <div>
+                <div class="gi-kicker">Deletion Impact</div>
+                <div class="gi-title">${summary.riskLevel === "blocked" ? "Dependencies found before delete" : summary.riskLevel === "caution" ? "Review dependencies before delete" : "No blocking dependencies found"}</div>
+            </div>
+            <span class="gi-state ${status.className}">${status.label}</span>
+        </div>
+        ${executiveHtml}
+        ${summaryHtml}
+        ${scoreHtml}
+        ${completenessHtml}
+        ${partialNote}
+        ${partialDetails}
+        ${topDomains.length ? `
+        <div class="gi-domains-toolbar">
+            <button class="gi-toolbar-btn" id="gi-reset-btn" type="button">Reset checklist</button>
+            <label class="gi-filter-toggle"><input type="checkbox" id="gi-open-filter"> <span>Only open actions</span></label>
+        </div>
+        ` : ""}
+        <div class="gi-ready-banner" hidden>
+            <span>All remediation steps complete</span>
+            <strong>Ready to Delete</strong>
+        </div>
+        <div class="gi-domains">${domainHtml}</div>
+    `;
+
+    panel.querySelectorAll(".gi-finding.clickable").forEach(item => {
+        item.addEventListener("click", () => {
+            focusImpactFinding(item.getAttribute("data-target-id"), item.getAttribute("data-target-name"));
+        });
+    });
+
+    function updateChecklistState() {
+        const allBoxes = panel.querySelectorAll(".gi-check-item input[type='checkbox']");
+        const checkedBoxes = panel.querySelectorAll(".gi-check-item input[type='checkbox']:checked");
+        const progressEl = panel.querySelector(".gi-check-progress");
+        if (progressEl) progressEl.textContent = `Checklist progress: ${checkedBoxes.length}/${allBoxes.length}`;
+
+        // Per-domain badge + complete state
+        panel.querySelectorAll(".gi-domain[data-domain-key]").forEach(domainEl => {
+            const dKey = domainEl.getAttribute("data-domain-key");
+            const dAll = domainEl.querySelectorAll(".gi-check-item input[type='checkbox']").length;
+            const dChecked = domainEl.querySelectorAll(".gi-check-item input[type='checkbox']:checked").length;
+            const badge = domainEl.querySelector(`[data-domain-badge="${dKey}"]`);
+            if (badge) badge.textContent = `${dChecked}/${dAll}`;
+            if (dAll > 0 && dChecked === dAll) {
+                domainEl.classList.add("gi-domain--complete");
+            } else {
+                domainEl.classList.remove("gi-domain--complete");
+            }
+        });
+
+        // Global Ready to Delete banner
+        const readyBanner = panel.querySelector(".gi-ready-banner");
+        const allDone = allBoxes.length > 0 && checkedBoxes.length === allBoxes.length;
+        if (readyBanner) readyBanner.hidden = !allDone;
+    }
+
+    panel.querySelectorAll(".gi-check-item input[type='checkbox']").forEach(input => {
+        input.addEventListener("change", () => {
+            const key = input.getAttribute("data-check-key") || "";
+            if (!key || !groupId) return;
+            setChecklistItem(groupId, key, input.checked);
+            updateChecklistState();
+        });
+    });
+
+    const resetBtn = panel.querySelector("#gi-reset-btn");
+    if (resetBtn && groupId) {
+        resetBtn.addEventListener("click", () => {
+            setChecklistState(groupId, {});
+            panel.querySelectorAll(".gi-check-item input[type='checkbox']").forEach(cb => {
+                cb.checked = false;
+            });
+            updateChecklistState();
+            showToast("Checklist reset", "info");
+        });
+    }
+
+    const openFilter = panel.querySelector("#gi-open-filter");
+    const domainsEl = panel.querySelector(".gi-domains");
+    if (openFilter && domainsEl) {
+        openFilter.addEventListener("change", () => {
+            if (openFilter.checked) {
+                domainsEl.classList.add("gi-domains--open-only");
+            } else {
+                domainsEl.classList.remove("gi-domains--open-only");
+            }
+        });
+    }
+}
+
+async function loadGroupImpact(groupId) {
+    const panel = getElement("group-impact-panel");
+    if (!panel || !groupId) return;
+
+    const requestId = ++groupImpactRequestId;
+    renderGroupImpactLoading();
+
+    if (groupImpactCache.has(groupId)) {
+        if (requestId === groupImpactRequestId) {
+            renderGroupImpact(groupImpactCache.get(groupId));
+        }
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/impact/group/${groupId}`);
+        const data = await response.json();
+        if (requestId !== groupImpactRequestId) return;
+
+        if (!response.ok) {
+            renderGroupImpactError(data.error || "Impact check failed");
+            return;
+        }
+
+        groupImpactCache.set(groupId, data);
+        renderGroupImpact(data);
+    } catch (error) {
+        if (requestId !== groupImpactRequestId) return;
+        renderGroupImpactError(`Network error: ${error.message}`);
+    }
+}
+
+async function exportGroupImpactReport(groupId) {
+    if (!groupId) return;
+    try {
+        const response = await fetch(`/api/impact/group/${groupId}`);
+        const data = await response.json();
+        if (!response.ok) {
+            showToast(data.error || "Impact export failed", "error");
+            return;
+        }
+
+        const safeName = String(data?.group?.displayName || groupId)
+            .replace(/[^a-z0-9\-_]+/gi, "_")
+            .replace(/^_+|_+$/g, "")
+            .slice(0, 80) || "group";
+        const fileName = `entramap-impact-${safeName}-${Date.now()}.json`;
+
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+        showToast("Impact report exported", "info");
+    } catch (error) {
+        showToast(`Impact export failed: ${error.message}`, "error");
+    }
+}
+
+async function exportGroupImpactCsv(groupId) {
+    if (!groupId) return;
+    try {
+        const response = await fetch(`/api/impact/group/${groupId}`);
+        const data = await response.json();
+        if (!response.ok) {
+            showToast(data.error || "CSV export failed", "error");
+            return;
+        }
+
+        const summary = data?.summary || {};
+        const group = data?.group || {};
+        const rows = [];
+        rows.push([
+            "groupDisplayName",
+            "groupId",
+            "riskLevel",
+            "riskScore",
+            "coverageScore",
+            "confidence",
+            "domainKey",
+            "domainLabel",
+            "domainStatus",
+            "findingSeverity",
+            "findingImpact",
+            "findingName",
+            "findingId",
+            "domainDetails",
+        ]);
+
+        (data?.domains || []).forEach(domain => {
+            const findings = Array.isArray(domain?.findings) ? domain.findings : [];
+            if (!findings.length) {
+                rows.push([
+                    group.displayName || "",
+                    group.id || "",
+                    summary.riskLevel || "",
+                    summary.riskScore || "",
+                    summary.coverageScore || "",
+                    summary.confidence || "",
+                    domain.key || "",
+                    domain.label || "",
+                    domain.status || "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    domain.details || "",
+                ]);
+                return;
+            }
+
+            findings.forEach(item => {
+                rows.push([
+                    group.displayName || "",
+                    group.id || "",
+                    summary.riskLevel || "",
+                    summary.riskScore || "",
+                    summary.coverageScore || "",
+                    summary.confidence || "",
+                    domain.key || "",
+                    domain.label || "",
+                    domain.status || "",
+                    item.severity || "",
+                    formatImpactLabel(item.impact),
+                    item.name || "",
+                    item.id || "",
+                    domain.details || "",
+                ]);
+            });
+        });
+
+        const csv = rows
+            .map(line => line.map(toCsvCell).join(","))
+            .join("\n");
+        const safeName = String(group.displayName || groupId)
+            .replace(/[^a-z0-9\-_]+/gi, "_")
+            .replace(/^_+|_+$/g, "")
+            .slice(0, 80) || "group";
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `entramap-impact-${safeName}-${Date.now()}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+        showToast("Impact CSV exported", "info");
+    } catch (error) {
+        showToast(`CSV export failed: ${error.message}`, "error");
+    }
+}
+
 function buildDetailRows(type, data) {
     const rows = [];
     const pushRow = (label, value, mono = false) => {
@@ -775,9 +1570,38 @@ function buildDetailRows(type, data) {
         if (data.securityEnabled) groupTypes.push("Security");
         if (data.mailEnabled) groupTypes.push("Mail");
         if (data.groupTypes?.includes("DynamicMembership")) groupTypes.push("Dynamic");
-        pushRow("Description", escHtml(data.description));
-        pushRow("Type", escHtml(groupTypes.join(", ")) || "—");
-        pushRow("Object ID", escHtml(data.id), true);
+        const groupRows = [];
+        const pushGroupRow = (label, value, mono = false) => {
+            if (value == null || value === "") return;
+            groupRows.push(`
+                <div class="dp-row">
+                    <div class="dp-label">${label}</div>
+                    <div class="dp-value${mono ? " mono" : ""}">${value}</div>
+                </div>
+            `);
+        };
+        pushGroupRow("Description", escHtml(data.description));
+        pushGroupRow("Type", escHtml(groupTypes.join(", ")) || "—");
+        pushGroupRow("Object ID", escHtml(data.id), true);
+
+        rows.push(`
+            <div class="dp-tabs">
+                <button class="dp-tab active" type="button" data-dp-tab="details">Details</button>
+                <button class="dp-tab" type="button" data-dp-tab="impact">Impact</button>
+            </div>
+            <div class="dp-pane" data-dp-pane="details">
+                ${groupRows.join("")}
+            </div>
+            <div class="dp-pane d-none" data-dp-pane="impact">
+                <div id="group-impact-panel" class="gi-card"></div>
+            </div>
+        `);
+        rows.push(`
+            <div class="dp-actions">
+                <button class="dp-action-btn" type="button" onclick="exportGroupImpactReport('${escHtml(data.id)}')"><i class="fas fa-file-arrow-down"></i> Export impact report</button>
+                <button class="dp-action-btn" type="button" onclick="exportGroupImpactCsv('${escHtml(data.id)}')"><i class="fas fa-file-csv"></i> Export impact CSV</button>
+            </div>
+        `);
         window.setTimeout(() => loadGroupPhoto(data.id), 60);
     }
 
@@ -850,6 +1674,11 @@ function renderDetailPanel(data) {
     panel.classList.remove("d-none");
     divider.classList.remove("d-none");
     if (tip) tip.style.display = "none";
+
+    if (type === "group" && data.id) {
+        bindDetailTabs();
+        loadGroupImpact(data.id);
+    }
 }
 
 function copyIdFromBtn(button) {
@@ -861,6 +1690,8 @@ function copyIdFromBtn(button) {
 }
 
 window.copyIdFromBtn = copyIdFromBtn;
+window.exportGroupImpactReport = exportGroupImpactReport;
+window.exportGroupImpactCsv = exportGroupImpactCsv;
 
 function exportCurrentGraph() {
     if (!lastGraphData) {
@@ -891,7 +1722,7 @@ function exportCurrentGraph() {
 
 function bindToolbar() {
     getElement("btn-fit")?.addEventListener("click", () => {
-        if (cy && cy.nodes().length) cy.fit(undefined, 40);
+        fitGraphInView();
     });
 
     getElement("btn-reset-layout")?.addEventListener("click", () => runLayout(true));
@@ -910,13 +1741,13 @@ function bindToolbar() {
         if (refreshBtn) refreshBtn.disabled = true;
         if (deepBtn) deepBtn.disabled = true;
         try {
-            showToast("Deep refresh gestart (3 rondes)", "info");
+            showToast("Deep refresh started (3 rounds)", "info");
             for (let index = 1; index <= 3; index += 1) {
                 showToast(`Deep refresh ${index}/3`, "info");
                 await loadMap(lastLoadedType, lastLoadedId);
                 if (index < 3) await waitMs(1800);
             }
-            showToast("Deep refresh voltooid", "info");
+            showToast("Deep refresh completed", "info");
         } finally {
             deepRefreshBusy = false;
             setControlsDisabled(false);
@@ -945,6 +1776,124 @@ function bindDisconnectLightbox() {
         try { sessionStorage.clear(); } catch (_) {}
         window.location.href = "/auth/disconnect";
     });
+}
+
+function renderSessionCountdown() {
+    const counter = getElement("st-countdown");
+    if (!counter) return;
+    counter.textContent = String(Math.max(0, sessionSecondsLeft));
+    counter.classList.toggle("danger", sessionSecondsLeft <= 10);
+}
+
+function forceSessionSignOut() {
+    window.location.href = "/auth/signout";
+}
+
+function ensureSessionTimeoutLightbox() {
+    let lightbox = getElement("session-timeout-lightbox");
+    if (lightbox) return lightbox;
+
+    lightbox = document.createElement("div");
+    lightbox.id = "session-timeout-lightbox";
+    lightbox.className = "st-backdrop";
+    lightbox.setAttribute("role", "dialog");
+    lightbox.setAttribute("aria-modal", "true");
+    lightbox.setAttribute("aria-labelledby", "st-title");
+    lightbox.innerHTML = `
+        <div class="st-card">
+            <div class="st-icon"><i class="fas fa-hourglass-half"></i></div>
+            <h3 id="st-title">Session timeout</h3>
+            <p>No activity detected. You will be signed out automatically.</p>
+            <div id="st-countdown" class="st-countdown" aria-live="assertive">60</div>
+            <div class="st-caption">seconds remaining</div>
+        </div>
+    `;
+    document.body.appendChild(lightbox);
+    return lightbox;
+}
+
+function clearSessionWarning(resetTimer = true) {
+    const app = getElement("app");
+    const lightbox = getElement("session-timeout-lightbox");
+
+    sessionWarningActive = false;
+    sessionSecondsLeft = SESSION_WARNING_SECONDS;
+
+    if (sessionCountdownTimer) {
+        window.clearInterval(sessionCountdownTimer);
+        sessionCountdownTimer = null;
+    }
+
+    if (app) app.classList.remove("session-timeout-dim");
+    if (lightbox) {
+        lightbox.classList.add("d-none");
+        lightbox.style.display = "";
+    }
+
+    renderSessionCountdown();
+    if (resetTimer) scheduleSessionTimeoutWarning();
+}
+
+function beginSessionWarning() {
+    if (!APP_CONTEXT.signedIn || sessionWarningActive) return;
+
+    sessionWarningActive = true;
+    sessionSecondsLeft = SESSION_WARNING_SECONDS;
+
+    const app = getElement("app");
+    const lightbox = ensureSessionTimeoutLightbox();
+    if (app) app.classList.add("session-timeout-dim");
+    if (lightbox) {
+        lightbox.classList.remove("d-none");
+        lightbox.style.display = "flex";
+        lightbox.style.zIndex = "2200";
+    }
+
+    renderSessionCountdown();
+    if (sessionCountdownTimer) window.clearInterval(sessionCountdownTimer);
+    sessionCountdownTimer = window.setInterval(() => {
+        sessionSecondsLeft -= 1;
+        renderSessionCountdown();
+        if (sessionSecondsLeft <= 0) {
+            if (sessionCountdownTimer) {
+                window.clearInterval(sessionCountdownTimer);
+                sessionCountdownTimer = null;
+            }
+            forceSessionSignOut();
+        }
+    }, 1000);
+}
+
+function scheduleSessionTimeoutWarning() {
+    if (!APP_CONTEXT.signedIn) return;
+    if (sessionIdleTimer) window.clearTimeout(sessionIdleTimer);
+
+    const warnAtMs = SESSION_IDLE_TIMEOUT_MS - (SESSION_WARNING_SECONDS * 1000);
+    sessionIdleTimer = window.setTimeout(beginSessionWarning, warnAtMs);
+}
+
+function registerSessionActivity() {
+    if (!APP_CONTEXT.signedIn) return;
+    if (sessionWarningActive) {
+        clearSessionWarning(true);
+        return;
+    }
+    scheduleSessionTimeoutWarning();
+}
+
+function setupSessionTimeout() {
+    if (!APP_CONTEXT.signedIn) return;
+
+    ["mousemove", "mousedown", "keydown", "scroll", "touchstart", "click"].forEach(eventName => {
+        document.addEventListener(eventName, registerSessionActivity, { passive: true });
+    });
+
+    window.addEventListener("beforeunload", () => {
+        if (sessionIdleTimer) window.clearTimeout(sessionIdleTimer);
+        if (sessionCountdownTimer) window.clearInterval(sessionCountdownTimer);
+    });
+
+    scheduleSessionTimeoutWarning();
 }
 
 function bindSearchUi() {
@@ -1005,7 +1954,7 @@ function bindInsightButtons() {
 
     getElement("insight-reset")?.addEventListener("click", () => {
         clearFocusFilter();
-        if (cy && cy.nodes().length) cy.fit(undefined, 50);
+        fitGraphInView();
     });
 }
 
@@ -1022,12 +1971,14 @@ function runHealthCheck() {
 document.addEventListener("DOMContentLoaded", () => {
     initCytoscape();
     setupAuthOverlayTabs();
+    setupAuthPermissionAccordion();
     setupMicrosoftSignInPopup();
     bindDisconnectLightbox();
     bindToolbar();
     bindSearchUi();
     bindDetailAndRail();
     bindInsightButtons();
+    setupSessionTimeout();
 
     if (APP_CONTEXT.signedIn) {
         enableSignedInMode();

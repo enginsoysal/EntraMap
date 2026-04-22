@@ -60,17 +60,6 @@
             </div>
         </div>
 
-        <div id="detail-divider" class="d-none"></div>
-
-        <div id="detail-panel" class="d-none">
-            <div id="detail-header">
-                <div id="detail-badge-wrap"></div>
-                <div id="detail-name"></div>
-                <button id="detail-close" title="Close"><i class="fas fa-times"></i></button>
-            </div>
-            <div id="detail-body"></div>
-        </div>
-
         <div id="left-tip"><i class="fas fa-mouse-pointer"></i> Click for details. Double-click a User/Group to zoom and load its structure.</div>
 
     </div>
@@ -98,6 +87,17 @@
 
         <div id="graph-loading" class="d-none">
             <div class="loading-inner"><div class="spinner-ring"></div><p>Loading Entra data&hellip;</p></div>
+        </div>
+
+        <div id="detail-divider" class="d-none"></div>
+
+        <div id="detail-panel" class="d-none">
+            <div id="detail-header">
+                <div id="detail-badge-wrap"></div>
+                <div id="detail-name"></div>
+                <button id="detail-close" title="Close"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="detail-body"></div>
         </div>
 
         <div id="relationship-rail" class="d-none" aria-live="polite">
@@ -128,6 +128,8 @@
             <button id="disconnect-btn" type="button" title="Disconnect tenant — wipes all session data and signs out">
                 <i class="fas fa-plug-circle-xmark"></i> Disconnect tenant
             </button>
+            <span class="footer-divider">·</span>
+            <span class="footer-note"><i class="fas fa-circle-info"></i> New links can appear over time. If something seems missing, disconnect tenant and sign in again.</span>
             {% endif %}
         </div>
     </div>
@@ -149,6 +151,8 @@
             <button class="auth-tab active" data-auth-tab="signin" type="button">Sign In</button>
             <button class="auth-tab" data-auth-tab="features" type="button">Features</button>
             <button class="auth-tab" data-auth-tab="howto" type="button">How To Use</button>
+            <button class="auth-tab" data-auth-tab="permissions" type="button">API Permissions</button>
+            <button class="auth-tab" data-auth-tab="changelog" type="button">Changelog</button>
         </div>
 
         <div class="auth-pane" data-auth-pane="signin">
@@ -189,28 +193,101 @@
 
         <div class="auth-pane d-none" data-auth-pane="features">
             <div class="feature-grid">
-                <article><i class="fas fa-sitemap"></i><h3>Relationship Map</h3><p>Trace user-to-device-to-group-to-app paths instantly across your tenant.</p></article>
-                <article><i class="fas fa-camera-retro"></i><h3>Photo-First Nodes</h3><p>People and groups are visually recognizable in-graph, not just labels.</p></article>
-                <article><i class="fas fa-route"></i><h3>Drill-Down Pivot</h3><p>Double-click user/group nodes to make that object the new investigation root.</p></article>
-                <article><i class="fas fa-triangle-exclamation"></i><h3>Risk Focus</h3><p>Instantly isolate unmanaged and non-compliant devices with one click.</p></article>
-                <article><i class="fas fa-link"></i><h3>Entra Deep Links</h3><p>Jump to object blades in Entra Admin Center directly from details.</p></article>
-                <article><i class="fas fa-file-export"></i><h3>Evidence Export</h3><p>Export graph JSON for tickets, handovers, incident context and governance.</p></article>
+                <article><i class="fas fa-sitemap"></i><h3>Live Relationship Mapping</h3><p>Trace users, groups, devices, apps, and Conditional Access relationships directly from Microsoft Graph.</p></article>
+                <article><i class="fas fa-route"></i><h3>Drill-Down Pivot</h3><p>Double-click user and group nodes to re-root the graph and continue the investigation chain.</p></article>
+                <article><i class="fas fa-camera-retro"></i><h3>Photo-First Identity View</h3><p>Users and groups show recognizable imagery so operational triage is faster than reading raw object names.</p></article>
+                <article><i class="fas fa-triangle-exclamation"></i><h3>Operational Risk Filters</h3><p>Jump straight to unmanaged and non-compliant devices from the Operational Insights panel.</p></article>
+                <article><i class="fas fa-shield-halved"></i><h3>Policy + Access Coverage</h3><p>Inspect Conditional Access, role relationships, app access paths, and workload-linked dependencies in one place.</p></article>
+                <article><i class="fas fa-users-gear"></i><h3>Group Delete Impact</h3><p>Run a pre-delete impact check for groups across CA, Intune, roles, licensing, entitlement, M365, and Exchange signals.</p></article>
+                <article><i class="fas fa-list-check"></i><h3>Remediation Workflow</h3><p>Use owner suggestions, per-domain remediation guidance, and a checklist with saved progress before deleting a group.</p></article>
+                <article><i class="fas fa-file-arrow-down"></i><h3>Exportable Evidence</h3><p>Export graph context and group impact analysis as JSON or CSV for tickets, audits, and handovers.</p></article>
+                <article><i class="fas fa-key"></i><h3>Permissions Transparency</h3><p>See exactly which delegated Graph permissions are requested and why they are needed.</p></article>
+                <article><i class="fas fa-clock-rotate-left"></i><h3>Built-In Session Safety</h3><p>Idle session timeout, popup-based sign-in, disconnect controls, and read-only design reduce accidental tenant risk.</p></article>
+                <article><i class="fas fa-gauge-high"></i><h3>Executive Delete Guidance</h3><p>Group impact includes go/no-go guidance, top evidence, coverage score, and confidence so operators can decide faster.</p></article>
+                <article><i class="fas fa-timeline"></i><h3>Release Transparency</h3><p>Read the in-app changelog directly from LOG.md so operators can see what changed between releases before signing in.</p></article>
             </div>
         </div>
 
         <div class="auth-pane d-none" data-auth-pane="howto">
             <div class="howto-cards">
-                <article><span>01</span><h4>Find your starting point</h4><p>Search by UPN, display name, or group name in the left panel.</p></article>
-                <article><span>02</span><h4>Load relationship context</h4><p>Click a result once to load its relationship graph and operational KPIs.</p></article>
-                <article><span>03</span><h4>Investigate fast</h4><p>Click a node for details, then use portal deep link or copy object ID.</p></article>
-                <article><span>04</span><h4>Pivot deeper</h4><p>Double-click user/group nodes to re-root and continue the investigation chain.</p></article>
-                <article><span>05</span><h4>Prioritize risk</h4><p>Use Operational Insights filters to focus immediately on risky devices.</p></article>
-                <article><span>06</span><h4>Share outcome</h4><p>Export JSON and attach it to security tickets or daily operations notes.</p></article>
+                <article><span>01</span><h4>Review before sign-in</h4><p>Check API Permissions and Changelog first, then use the Microsoft popup sign-in. First-time tenant access requires admin consent for the delegated Graph scopes.</p></article>
+                <article><span>02</span><h4>Pick your object type</h4><p>Choose User, Group, Device, App, or CA Policy in the left rail, then search by name, UPN, or policy title.</p></article>
+                <article><span>03</span><h4>Load the graph</h4><p>Click one search result to render the live relationship graph and its linked operational context.</p></article>
+                <article><span>04</span><h4>Inspect and pivot</h4><p>Click nodes for details, copy IDs, use Entra deep links, and double-click user/group nodes to pivot deeper.</p></article>
+                <article><span>05</span><h4>Run group impact before delete</h4><p>For groups, open the Impact view to review blockers, warnings, remediation guidance, owners to contact, and checklist progress saved per group.</p></article>
+                <article><span>06</span><h4>Export and share</h4><p>Export the current graph or the impact analysis as JSON/CSV and attach it to tickets, CAB notes, or governance reviews. Idle sessions warn before automatic sign-out.</p></article>
             </div>
             <div class="howto-banner">
                 <i class="fas fa-lightbulb"></i>
-                Daily routine tip: Start each day with unmanaged/non-compliant filters before handling user tickets.
+                Daily routine tip: start with risky devices, then validate group impact before making access or deletion changes.
             </div>
+        </div>
+
+        <div class="auth-pane d-none" data-auth-pane="permissions">
+            <div class="perm-intro">All permissions are delegated and read-only. Click a permission to see why it is needed.</div>
+            <div class="perm-list">
+                <div class="perm-item">
+                    <button class="perm-toggle" type="button">User.Read <span class="perm-tag">required</span><i class="fas fa-chevron-down perm-chevron"></i></button>
+                    <div class="perm-body">Reads the signed-in user's basic profile to establish session identity.</div>
+                </div>
+                <div class="perm-item">
+                    <button class="perm-toggle" type="button">User.ReadBasic.All <span class="perm-tag">required</span><i class="fas fa-chevron-down perm-chevron"></i></button>
+                    <div class="perm-body">Reads basic user info across the tenant for user search and mapping.</div>
+                </div>
+                <div class="perm-item">
+                    <button class="perm-toggle" type="button">Group.Read.All <span class="perm-tag">required</span><i class="fas fa-chevron-down perm-chevron"></i></button>
+                    <div class="perm-body">Reads groups, memberships, ownership, nesting, and group license relationships.</div>
+                </div>
+                <div class="perm-item">
+                    <button class="perm-toggle" type="button">Device.Read.All <span class="perm-tag">required</span><i class="fas fa-chevron-down perm-chevron"></i></button>
+                    <div class="perm-body">Reads tenant devices for device graph coverage and risk context.</div>
+                </div>
+                <div class="perm-item">
+                    <button class="perm-toggle" type="button">Application.Read.All <span class="perm-tag">required</span><i class="fas fa-chevron-down perm-chevron"></i></button>
+                    <div class="perm-body">Reads enterprise apps and service principals for app relationship mapping.</div>
+                </div>
+                <div class="perm-item">
+                    <button class="perm-toggle" type="button">DeviceManagementApps.Read.All <span class="perm-tag">required</span><i class="fas fa-chevron-down perm-chevron"></i></button>
+                    <div class="perm-body">Reads Intune app assignments to detect group dependencies before deletion.</div>
+                </div>
+                <div class="perm-item">
+                    <button class="perm-toggle" type="button">Policy.Read.All <span class="perm-tag">required</span><i class="fas fa-chevron-down perm-chevron"></i></button>
+                    <div class="perm-body">Reads Conditional Access policy definitions and targeting scope.</div>
+                </div>
+                <div class="perm-item">
+                    <button class="perm-toggle" type="button">RoleManagement.Read.Directory <span class="perm-tag">required</span><i class="fas fa-chevron-down perm-chevron"></i></button>
+                    <div class="perm-body">Reads Entra role assignments and privileged role relationships.</div>
+                </div>
+                <div class="perm-item">
+                    <button class="perm-toggle" type="button">Organization.Read.All <span class="perm-tag">required</span><i class="fas fa-chevron-down perm-chevron"></i></button>
+                    <div class="perm-body">Reads tenant organization data and SKU metadata for license resolution.</div>
+                </div>
+                <div class="perm-item">
+                    <button class="perm-toggle" type="button">EntitlementManagement.Read.All <span class="perm-tag">required</span><i class="fas fa-chevron-down perm-chevron"></i></button>
+                    <div class="perm-body">Reads access package policies to find entitlement dependencies for groups.</div>
+                </div>
+                <div class="perm-item">
+                    <button class="perm-toggle" type="button">Team.ReadBasic.All <span class="perm-tag">required</span><i class="fas fa-chevron-down perm-chevron"></i></button>
+                    <div class="perm-body">Reads Teams metadata linked to Microsoft 365 groups.</div>
+                </div>
+                <div class="perm-item">
+                    <button class="perm-toggle" type="button">Sites.Read.All <span class="perm-tag">required</span><i class="fas fa-chevron-down perm-chevron"></i></button>
+                    <div class="perm-body">Reads SharePoint site metadata to detect workload dependencies.</div>
+                </div>
+                <div class="perm-item">
+                    <button class="perm-toggle" type="button">Tasks.Read <span class="perm-tag">required</span><i class="fas fa-chevron-down perm-chevron"></i></button>
+                    <div class="perm-body">Reads Planner plans/tasks connected to group-backed workspaces.</div>
+                </div>
+                <div class="perm-item">
+                    <button class="perm-toggle" type="button">Directory.Read.All <span class="perm-tag">required</span><i class="fas fa-chevron-down perm-chevron"></i></button>
+                    <div class="perm-body">Reads broader directory objects including administrative unit scope references.</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="auth-pane d-none" data-auth-pane="changelog">
+            <div class="changelog-intro">Loaded from LOG.md in this repo, so the front page always reflects the current release history.</div>
+            <div class="changelog-panel">{{ changelog_html }}</div>
         </div>
 
         <div class="auth-modal-footer">
@@ -232,6 +309,16 @@
             <button id="lb-cancel" class="lb-btn lb-btn-cancel" type="button">Cancel</button>
             <button id="lb-confirm" class="lb-btn lb-btn-confirm" type="button"><i class="fas fa-plug-circle-xmark"></i> Disconnect</button>
         </div>
+    </div>
+</div>
+
+<div id="session-timeout-lightbox" class="st-backdrop d-none" role="dialog" aria-modal="true" aria-labelledby="st-title">
+    <div class="st-card">
+        <div class="st-icon"><i class="fas fa-hourglass-half"></i></div>
+        <h3 id="st-title">Session timeout</h3>
+        <p>No activity detected. You will be signed out automatically.</p>
+        <div id="st-countdown" class="st-countdown" aria-live="assertive">60</div>
+        <div class="st-caption">seconds remaining</div>
     </div>
 </div>
 

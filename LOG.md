@@ -1,5 +1,14 @@
 # Change Log
 
+## 0.4.0 - 2026-04-22
+
+- Bumped application version to 0.4.0
+- Added a broad group delete impact workflow with executive go/no-go guidance, top evidence, remediation guidance, owner suggestions, checklist tracking, and CSV export
+- Added API Permissions and Changelog tabs to the signed-out auth modal
+- Added server-rendered changelog content from `LOG.md` directly into the front page modal
+- Refreshed the popup onboarding content in Features and How To Use to match the current product surface
+- Added an idle session timeout warning with a visible 60-second countdown and automatic sign-out
+
 ## 0.3.16 - 2026-04-22
 
 - Bumped application version to 0.3.16

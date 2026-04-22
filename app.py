@@ -11,6 +11,8 @@ PERFORMANCE OPTIMIZATIONS:
 """
 
 import os
+from html import escape
+from pathlib import Path
 from datetime import timedelta
 from functools import wraps
 from urllib.parse import urlparse
@@ -19,6 +21,7 @@ from flask import Flask, render_template, jsonify, request, redirect, session, u
 from flask_session import Session
 from flask_compress import Compress
 import importlib
+from markupsafe import Markup
 
 from config.config import Config
 from services.session_service import SessionService
@@ -36,6 +39,7 @@ from engines.device_map_engine import DeviceMapEngine
 from engines.group_map_engine import GroupMapEngine
 from engines.app_map_engine import AppMapEngine
 from engines.ca_map_engine import CAMapEngine
+from engines.group_impact_engine import GroupImpactEngine
 
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -127,6 +131,56 @@ def create_app() -> Flask:
 app = create_app()
 
 
+def render_changelog_html() -> Markup:
+    """Render LOG.md into lightweight HTML for the signed-out auth modal."""
+    log_path = Path(app.root_path) / "LOG.md"
+    if not log_path.exists():
+        return Markup("<p class=\"changelog-empty\">Changelog unavailable.</p>")
+
+    lines = log_path.read_text(encoding="utf-8").splitlines()
+    parts = []
+    in_list = False
+
+    for raw_line in lines:
+        line = raw_line.strip()
+        if not line:
+            if in_list:
+                parts.append("</ul>")
+                in_list = False
+            continue
+
+        if line.startswith("# "):
+            if in_list:
+                parts.append("</ul>")
+                in_list = False
+            parts.append(f"<h3>{escape(line[2:].strip())}</h3>")
+            continue
+
+        if line.startswith("## "):
+            if in_list:
+                parts.append("</ul>")
+                in_list = False
+            parts.append(f"<h4>{escape(line[3:].strip())}</h4>")
+            continue
+
+        if line.startswith("- "):
+            if not in_list:
+                parts.append("<ul>")
+                in_list = True
+            parts.append(f"<li>{escape(line[2:].strip())}</li>")
+            continue
+
+        if in_list:
+            parts.append("</ul>")
+            in_list = False
+        parts.append(f"<p>{escape(line)}</p>")
+
+    if in_list:
+        parts.append("</ul>")
+
+    return Markup("".join(parts))
+
+
 # ────────────────────────────────────────────────────────────────────────────
 # Engine Initialization
 # ────────────────────────────────────────────────────────────────────────────
@@ -167,6 +221,7 @@ def index():
     user = SessionService.get_user(session)
     return render_template(
         "index.html",
+        changelog_html=render_changelog_html(),
         user=user,
         signed_in=bool(user),
         login_error=request.args.get("login_error", ""),
@@ -341,6 +396,52 @@ def ca_policy_map(policy_id):
         return jsonify(error), 404
     
     return jsonify({"nodes": nodes, "edges": edges})
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# Routes: Impact Analysis
+# ────────────────────────────────────────────────────────────────────────────
+
+@app.route("/api/impact/group/<group_id>")
+@login_required
+def group_impact(group_id):
+    token = auth_engine.get_token(session)
+    result, error = GroupImpactEngine.build(group_id, token)
+
+    if error:
+        return jsonify(error), error.get("status", 404)
+
+    return jsonify(result)
+
+
+@app.route("/api/debug/group-impact/<group_id>")
+@login_required
+def debug_group_impact(group_id):
+    token = auth_engine.get_token(session)
+    result, error = GroupImpactEngine.build(group_id, token)
+
+    if error:
+        return jsonify(error), error.get("status", 404)
+
+    compact = {
+        "group": {
+            "id": result.get("group", {}).get("id", ""),
+            "displayName": result.get("group", {}).get("displayName", ""),
+        },
+        "summary": result.get("summary", {}),
+        "domains": [
+            {
+                "key": domain.get("key", ""),
+                "label": domain.get("label", ""),
+                "status": domain.get("status", ""),
+                "count": domain.get("count", 0),
+                "details": domain.get("details", ""),
+                "findings": domain.get("findings", []),
+            }
+            for domain in result.get("domains", [])
+        ],
+    }
+    return jsonify(compact)
 
 
 # ────────────────────────────────────────────────────────────────────────────

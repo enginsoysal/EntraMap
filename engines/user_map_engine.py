@@ -19,14 +19,19 @@ class UserMapEngine:
     """User map graph building"""
 
     @staticmethod
-    def _get_intune_app_index(token: str, group_ids: List[str], max_apps: int = 400) -> Dict:
+    def _get_intune_app_index(
+        token: str,
+        group_ids: List[str],
+        max_apps: int = 400,
+        base_url: str = "https://graph.microsoft.com/v1.0",
+    ) -> Dict:
         """Index Intune apps by group with concurrent fetching."""
         target_ids = set(group_ids)
         app_index = {}
         
         # Fetch apps once
         apps = GraphService.get_all(
-            "/deviceAppManagement/mobileApps"
+            f"{base_url}/deviceAppManagement/mobileApps"
             "?$select=id,displayName,publisher,description,createdDateTime,lastModifiedDateTime"
             "&$top=100",
             token,
@@ -37,7 +42,7 @@ class UserMapEngine:
         def fetch_app_assignments(app: Dict) -> Tuple[Dict, List]:
             """Fetch assignments for one app."""
             assignments = GraphService.get_all(
-                f"/deviceAppManagement/mobileApps/{app['id']}/assignments?$top=50",
+                f"{base_url}/deviceAppManagement/mobileApps/{app['id']}/assignments?$top=50",
                 token,
                 max_items=50,
             )
@@ -149,7 +154,17 @@ class UserMapEngine:
             edges.append({"source": user["id"], "target": m["id"], "label": "member of"})
 
         # Group Intune apps
-        intune_app_index = UserMapEngine._get_intune_app_index(token, group_ids)
+        intune_app_index = UserMapEngine._get_intune_app_index(
+            token,
+            group_ids,
+            base_url="https://graph.microsoft.com/v1.0",
+        )
+        if not intune_app_index:
+            intune_app_index = UserMapEngine._get_intune_app_index(
+                token,
+                group_ids,
+                base_url="https://graph.microsoft.com/beta",
+            )
         for gid, app_links in intune_app_index.items():
             for app_link in app_links:
                 app_obj = app_link["app"]
@@ -203,7 +218,7 @@ class UserMapEngine:
 
         # CA policies
         for policy in GraphService.get_all(
-            "/identity/conditionalAccessPolicies?$select=id,displayName,state,conditions,grantControls",
+            "/identity/conditionalAccess/policies?$select=id,displayName,state,conditions,grantControls",
             token,
             max_items=200,
         ):
