@@ -52,6 +52,32 @@ Operationally, the largest additions are:
 - richer signed-out onboarding with permissions and changelog transparency
 - idle session timeout protection in the frontend
 
+## Screenshots
+
+### Main Screen
+
+![Main screen](screenshots/mainScreen.png)
+
+### Search Objects
+
+![Search objects](screenshots/searchObjects.png)
+
+### User Search
+
+![User search](screenshots/userSearch.png)
+
+### Linked Objects
+
+![Linked objects](screenshots/linkedObjects.png)
+
+### Impact Screen
+
+![Impact screen](screenshots/impactScreen.png)
+
+### Operational Insights
+
+![Operational insights](screenshots/operationalInsights.png)
+
 ## Release History
 
 For full historical version notes, see `LOG.md`.
@@ -135,6 +161,7 @@ Copy-Item .env.example .env
 - CLIENT_ID
 - CLIENT_SECRET
 - FLASK_SECRET_KEY
+- APPLICATIONINSIGHTS_CONNECTION_STRING or APPINSIGHTS_INSTRUMENTATIONKEY (optional)
 
 4. Start the app:
 
@@ -157,6 +184,7 @@ Recommended app settings:
 - CLIENT_ID
 - CLIENT_SECRET
 - FLASK_SECRET_KEY
+- APPLICATIONINSIGHTS_CONNECTION_STRING (preferred) or APPINSIGHTS_INSTRUMENTATIONKEY
 
 Recommended startup command:
 
@@ -165,6 +193,22 @@ gunicorn --bind=0.0.0.0 --timeout 600 app:app
 ```
 
 If you deploy on Windows App Service and prefer the built-in Python startup behavior, make sure the app starts app.py correctly and the environment variables are configured in App Settings.
+
+### Application Insights
+
+This app can send request, exception, dependency, and optional application logging telemetry to Azure Monitor Application Insights.
+
+Recommended configuration:
+
+- Set `APPLICATIONINSIGHTS_CONNECTION_STRING` to the connection string from your Application Insights resource.
+- If you only have an instrumentation key, set `APPINSIGHTS_INSTRUMENTATIONKEY`; the app uses a compatible instrumentation-key exporter path for Flask telemetry.
+- Keep `APPLICATIONINSIGHTS_ENABLE_LOGGING=true` if you also want Python log events in Application Insights.
+
+Notes:
+
+- Connection strings are the modern Azure Monitor configuration model; prefer them over instrumentation keys for new deployments.
+- Instrumentation-key support is kept as a compatibility path because many existing Application Insights resources still expose that value during migration.
+- After deployment, hit `/api/health` or load the homepage once and then verify incoming requests in the Application Insights resource.
 
 ## Security Notes
 
