@@ -82,6 +82,10 @@ Operationally, the largest additions are:
 
 For full historical version notes, see `LOG.md`.
 
+## License
+
+This project is licensed under the MIT License. See the `LICENSE` file for details.
+
 ## Requirements
 
 - Python 3.11+ recommended
