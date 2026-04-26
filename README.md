@@ -1,5 +1,7 @@
 # EntraMap
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Version 0.4.0
 
 EntraMap is a Flask web application that signs users in with Microsoft Entra ID and visualizes tenant relationships as an interactive graph. It helps you explore users, devices, groups, applications, and Conditional Access policies from a single screen.
@@ -230,6 +232,15 @@ For production usage, configure these additional safeguards:
 - Prefer Redis-backed sessions over local filesystem (`SESSION_TYPE=redis`, `REDIS_URL`)
 - Enable token cache encryption at rest with `TOKEN_CACHE_ENCRYPTION_KEY`
 - Restrict operational access to host filesystem and deployment tooling (least privilege)
+
+## Contributing
+
+Contributions are welcome.
+
+1. Fork the repository and create a feature branch.
+2. Keep changes focused and include clear commit messages.
+3. Run the app locally and validate the affected flow before opening a PR.
+4. Open a pull request with context, test notes, and screenshots when UI is impacted.
 
 ## Project Structure
 
