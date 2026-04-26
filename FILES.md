@@ -1,6 +1,6 @@
 # Files Reference
 
-Version 0.4.0
+Version 0.4.1
 
 This file describes the purpose of each file in the repository.
 
@@ -88,6 +88,7 @@ Responsibilities:
 - Supports graph export and read-only helper actions
 - Manages popup auth tabs, permission accordion, signed-out frontend mode, and session timeout behavior
 - Renders group impact executive guidance, remediation workflows, checklist persistence, and export actions
+- Handles Konami easter egg behavior (signed-out prompt and signed-in mini Asteroids mode)
 - Displays notifications and loading states
 
 ### static/brand/logo.svg

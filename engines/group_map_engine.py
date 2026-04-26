@@ -89,7 +89,7 @@ class GroupMapEngine:
 
         # Get group
         group = GraphService.get(
-            f"/groups/{group_id}?$select=id,displayName,description,groupTypes,securityEnabled,mailEnabled",
+            f"/groups/{group_id}?$select=id,displayName,description,groupTypes,securityEnabled,mailEnabled,membershipRule,membershipRuleProcessingState",
             token,
         )
         if not group or "error" in group:

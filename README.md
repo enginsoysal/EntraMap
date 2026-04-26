@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Version 0.4.0
+Version 0.4.1
 
 EntraMap is a Flask web application that signs users in with Microsoft Entra ID and visualizes tenant relationships as an interactive graph. It helps you explore users, devices, groups, applications, and Conditional Access policies from a single screen.
 
@@ -32,27 +32,25 @@ EntraMap is a Flask web application that signs users in with Microsoft Entra ID 
 - In-app changelog rendered directly from `LOG.md`
 - Idle session timeout warning with 60-second countdown before auto sign-out
 
-## Latest Changes (0.4.0)
+## Latest Changes (0.4.1)
 
-- Expanded EntraMap from a graph visualizer into a broader operational decision tool for group delete impact analysis
-- Added executive guidance, remediation actions, owner suggestions, checklist persistence, ready-to-delete signaling, and CSV export for group impact workflows
-- Broadened impact coverage across policy, device management, governance, licensing, and Microsoft 365 workload dependencies
-- Added signed-out onboarding tabs for API Permissions and Changelog so operators can review access scope and release history before sign-in
-- Added server-rendered changelog loading from `LOG.md`, keeping release notes in one source of truth
-- Added idle-session timeout warning UX with countdown, final-seconds emphasis, and activity-based reset
+- Added policy-to-group mapping improvements for Conditional Access with explicit included and excluded group scope visibility in the graph
+- Added dynamic group support across mapping and search, including membership rule and rule-processing state details in the UI
+- Added CA scope edge coloring and contextual scope legend behavior so include/exclude targeting is easier to interpret
+- Added a Konami easter egg flow: signed-out users see a lightweight "Nope... you're not logged in." character prompt; signed-in users can launch an in-panel mini Asteroids mode
+- Expanded the mini Asteroids mode with boss encounter, enrage phase visuals, and balance tuning for a softer difficulty curve
+- Continued documentation and release consistency updates across README, FILES, and LOG
 
-## 0.4.0 Focus
+## 0.4.1 Focus
 
-The main difference between 0.3.16 and 0.4.0 is scope: 0.3.16 still centered on authentication reliability and Intune app visibility, while 0.4.0 turns EntraMap into a much more complete read-only impact and governance cockpit.
+Version 0.4.1 focuses on two themes: clearer policy targeting visibility for real operational mapping, and a playful but controlled in-app easter egg experience that stays isolated from the core tenant workflow.
 
-Operationally, the largest additions are:
+Operational highlights in 0.4.1:
 
-- pre-delete group dependency analysis across multiple Entra and M365 domains
-- executive decision support instead of raw findings only
-- remediation and ownership guidance instead of passive visibility
-- exportable evidence in both JSON and CSV
-- richer signed-out onboarding with permissions and changelog transparency
-- idle session timeout protection in the frontend
+- clearer policy scoping (included vs excluded groups)
+- deeper dynamic group context (rule + processing state)
+- stronger graph readability through scope-specific edge styling and legend cues
+- optional mini-game easter egg that never takes over the full page
 
 ## Screenshots
 

@@ -34,4 +34,5 @@ Screenshots (indien van toepassing):
 - [ ] Wijziging is klein en gefocust
 - [ ] Commit messages zijn duidelijk
 - [ ] Documentatie is bijgewerkt indien nodig
+- [ ] Release notes zijn bijgewerkt in LOG.md (indien van toepassing)
 - [ ] Gevoelige data/secrets zijn niet toegevoegd

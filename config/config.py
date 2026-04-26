@@ -45,6 +45,11 @@ class Config:
     DEBUG = _env_bool("FLASK_DEBUG", False)
     PORT = _env_int("PORT", 5000)
 
+    # Azure Monitor / Application Insights
+    APPLICATIONINSIGHTS_CONNECTION_STRING = os.getenv("APPLICATIONINSIGHTS_CONNECTION_STRING", "").strip()
+    APPINSIGHTS_INSTRUMENTATIONKEY = os.getenv("APPINSIGHTS_INSTRUMENTATIONKEY", "").strip()
+    APPLICATIONINSIGHTS_ENABLE_LOGGING = _env_bool("APPLICATIONINSIGHTS_ENABLE_LOGGING", True)
+
     # Session
     SESSION_TYPE = os.getenv("SESSION_TYPE", "filesystem").strip().lower()
     REDIS_URL = os.getenv("REDIS_URL", "").strip() if SESSION_TYPE == "redis" else None
@@ -76,7 +81,7 @@ class Config:
     ]
 
     # App
-    VERSION = "0.4.0"
+    VERSION = "0.4.1"
 
     @classmethod
     def validate(cls) -> Tuple[bool, str]:

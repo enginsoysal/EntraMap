@@ -1,6 +1,6 @@
 "use strict";
 
-const APP_CONTEXT = window.APP_CONTEXT || { signedIn: false, version: "0.4.0" };
+const APP_CONTEXT = window.APP_CONTEXT || { signedIn: false, version: "0.4.1" };
 
 const TYPE_META = {
     user: { label: "User", icon: "fa-user" },
@@ -47,12 +47,26 @@ let sessionCountdownTimer = null;
 let sessionSecondsLeft = SESSION_WARNING_SECONDS;
 let sessionWarningActive = false;
 
+const KONAMI_SEQUENCE = ["ArrowUp", "ArrowUp", "ArrowDown", "ArrowDown", "ArrowLeft", "ArrowRight", "ArrowLeft", "ArrowRight", "b", "a"];
+let konamiProgress = 0;
+let konamiResetTimer = null;
+
+let asteroidsActive = false;
+let asteroidsKeys = {};
+let asteroidsRaf = null;
+let asteroidsUi = null;
+let asteroidsState = null;
+
 function getElement(id) {
     return document.getElementById(id);
 }
 
 function waitMs(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
 }
 
 function escHtml(value) {
@@ -97,6 +111,15 @@ function showEmptyState(show) {
 function clearSearchResults() {
     const results = getElement("search-results");
     if (results) results.innerHTML = "";
+}
+
+function updateScopeLegend(data) {
+    const scopeLegend = getElement("scope-legend");
+    if (!scopeLegend) return;
+
+    const edges = data?.edges || [];
+    const hasScopedEdges = edges.some(edge => edge?.scopeKind === "include" || edge?.scopeKind === "exclude");
+    scopeLegend.classList.toggle("d-none", !hasScopedEdges);
 }
 
 function openAuthPopup(url, windowName, width = 560, height = 720) {
@@ -283,6 +306,8 @@ function buildCyStyle() {
         { selector: "node[type='group'][hasPhoto = 1]", style: { shape: "ellipse", width: 58, height: 58, "border-width": 3 } },
         { selector: "node.highlighted", style: { "border-width": 4, "overlay-color": "#fff", "overlay-padding": 4, "overlay-opacity": 0.06 } },
         { selector: "edge", style: { width: 1.5, "line-color": "#252a47", "target-arrow-color": "#252a47", "target-arrow-shape": "triangle", "curve-style": "bezier", label: "data(label)", "font-size": "8px", color: "#3a4268", "text-rotation": "autorotate", "text-margin-y": -6, "font-family": "Segoe UI, system-ui, sans-serif", opacity: 0.7 } },
+        { selector: "edge[scopeKind='include']", style: { "line-color": "#22c55e", "target-arrow-color": "#22c55e", color: "#16a34a", width: 2.2, opacity: 0.9 } },
+        { selector: "edge[scopeKind='exclude']", style: { "line-color": "#ef4444", "target-arrow-color": "#ef4444", color: "#dc2626", width: 2.2, opacity: 0.95 } },
         { selector: "edge.highlighted", style: { "line-color": "#3d4a7a", "target-arrow-color": "#3d4a7a", opacity: 1 } },
         { selector: ".faded", style: { opacity: 0.12 } },
     ];
@@ -336,6 +361,7 @@ function clearGraph() {
     cy.pan({ x: 0, y: 0 });
     activeNodeId = null;
     lastGraphData = null;
+    updateScopeLegend(null);
     renderRelationshipRail(null);
     hideDetailPanel();
 }
@@ -618,12 +644,14 @@ function renderGraph(data) {
                 source: edge.source,
                 target: edge.target,
                 label: edge.label,
+                scopeKind: edge.scopeKind || "",
             },
         });
     });
 
     cy.add(elements);
     lastGraphData = data;
+    updateScopeLegend(data);
     updateInsights(data);
     runLayout(false);
     hydrateGraphPhotos(data.nodes || []);
@@ -1566,10 +1594,11 @@ function buildDetailRows(type, data) {
     if (type === "group") {
         rows.push('<div class="dp-photo-container"><div id="detail-photo" class="dp-photo-placeholder"><i class="fas fa-users"></i></div></div>');
         const groupTypes = [];
+        const isDynamicGroup = data.groupTypes?.includes("DynamicMembership");
         if (data.groupTypes?.includes("Unified")) groupTypes.push("Microsoft 365");
         if (data.securityEnabled) groupTypes.push("Security");
         if (data.mailEnabled) groupTypes.push("Mail");
-        if (data.groupTypes?.includes("DynamicMembership")) groupTypes.push("Dynamic");
+        if (isDynamicGroup) groupTypes.push("Dynamic");
         const groupRows = [];
         const pushGroupRow = (label, value, mono = false) => {
             if (value == null || value === "") return;
@@ -1582,6 +1611,11 @@ function buildDetailRows(type, data) {
         };
         pushGroupRow("Description", escHtml(data.description));
         pushGroupRow("Type", escHtml(groupTypes.join(", ")) || "—");
+        if (isDynamicGroup) {
+            pushGroupRow("Membership", "Dynamic membership rule");
+            pushGroupRow("Rule state", escHtml(data.membershipRuleProcessingState || "On"));
+            pushGroupRow("Rule", escHtml(data.membershipRule || "—"), true);
+        }
         pushGroupRow("Object ID", escHtml(data.id), true);
 
         rows.push(`
@@ -1633,10 +1667,15 @@ function buildDetailRows(type, data) {
             enabledForReportingButNotEnforced: '<span class="sb report">Report-only</span>',
         };
         const conditions = data.conditions || {};
+        const userScope = conditions.users || {};
         const apps = conditions.applications?.includeApplications || [];
         const platforms = conditions.platforms?.includePlatforms || [];
         const controls = data.grantControls?.builtInControls || [];
+        const includeGroups = userScope.includeGroups || [];
+        const excludeGroups = userScope.excludeGroups || [];
         pushRow("Status", stateMap[data.state] || escHtml(data.state));
+        if (includeGroups.length) pushRow("Included groups", includeGroups.includes("All") ? "All groups" : `${includeGroups.length} group(s)`);
+        if (excludeGroups.length) pushRow("Excluded groups", `${excludeGroups.length} group(s)`);
         if (apps.length) pushRow("Apps", apps.includes("All") ? "All apps" : `${apps.length} app(s)`);
         if (platforms.length) pushRow("Platforms", escHtml(platforms.join(", ")));
         if (controls.length) pushRow("Required controls", escHtml(controls.join(", ")));
@@ -1896,6 +1935,657 @@ function setupSessionTimeout() {
     scheduleSessionTimeoutWarning();
 }
 
+function normalizeKonamiKey(key) {
+    if (!key) return "";
+    if (key === "Spacebar" || key === "Space") return " ";
+    if (key.length === 1) return key.toLowerCase();
+    return key;
+}
+
+function showSignedOutNope() {
+    let card = getElement("konami-nope");
+    if (card) card.remove();
+
+    card = document.createElement("div");
+    card.id = "konami-nope";
+    card.className = "konami-nope";
+    card.innerHTML = `
+        <div class="nope-figure" aria-hidden="true">
+            <div class="nope-head">
+                <span class="nope-eye"></span>
+                <span class="nope-eye"></span>
+            </div>
+            <div class="nope-body"></div>
+        </div>
+        <div class="nope-bubble">Nope... you're not logged in.</div>
+    `;
+    document.body.appendChild(card);
+
+    window.setTimeout(() => {
+        card.classList.add("bye");
+        window.setTimeout(() => card.remove(), 360);
+    }, 2600);
+}
+
+function createAsteroidsRock(width, height, radiusMin = 18, radiusMax = 44) {
+    const radius = radiusMin + Math.random() * (radiusMax - radiusMin);
+    const edge = Math.floor(Math.random() * 4);
+    let x = 0;
+    let y = 0;
+
+    if (edge === 0) {
+        x = Math.random() * width;
+        y = -radius;
+    } else if (edge === 1) {
+        x = width + radius;
+        y = Math.random() * height;
+    } else if (edge === 2) {
+        x = Math.random() * width;
+        y = height + radius;
+    } else {
+        x = -radius;
+        y = Math.random() * height;
+    }
+
+    const speed = 22 + Math.random() * 48;
+    const angle = Math.random() * Math.PI * 2;
+    const vertexCount = 8;
+    const shape = [];
+    for (let index = 0; index < vertexCount; index += 1) {
+        shape.push(0.72 + Math.random() * 0.45);
+    }
+
+    return {
+        x,
+        y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        radius,
+        rot: (Math.random() - 0.5) * 0.9,
+        angle: Math.random() * Math.PI * 2,
+        shape,
+    };
+}
+
+function closeMiniAsteroids() {
+    asteroidsActive = false;
+    asteroidsKeys = {};
+    if (asteroidsRaf) {
+        window.cancelAnimationFrame(asteroidsRaf);
+        asteroidsRaf = null;
+    }
+    if (asteroidsUi?.root?.parentNode) {
+        asteroidsUi.root.parentNode.removeChild(asteroidsUi.root);
+    }
+    asteroidsUi = null;
+    asteroidsState = null;
+}
+
+function startMiniAsteroids() {
+    if (asteroidsActive) {
+        closeMiniAsteroids();
+        return;
+    }
+
+    const rightPanel = getElement("right-panel");
+    if (!rightPanel) return;
+
+    const wrapper = document.createElement("div");
+    wrapper.id = "asteroids-mini";
+    wrapper.className = "asteroids-mini";
+    wrapper.innerHTML = `
+        <div class="asteroids-head">
+            <div class="asteroids-title"><i class="fas fa-meteor"></i> Asteroids</div>
+            <div class="asteroids-meta">
+                <span id="asteroids-score">Score: 0</span>
+                <span id="asteroids-lives">Lives: 3</span>
+                <span id="asteroids-boss" class="d-none">Boss: 0%</span>
+                <button id="asteroids-close" type="button" title="Close">Close</button>
+            </div>
+        </div>
+        <div class="asteroids-stage">
+            <canvas id="asteroids-canvas" width="520" height="300" aria-label="Mini Asteroids"></canvas>
+            <div class="asteroids-scanlines" aria-hidden="true"></div>
+        </div>
+        <div class="asteroids-help">Controls: Left/Right rotate, Up thrust, Space shoot</div>
+    `;
+    rightPanel.appendChild(wrapper);
+
+    const canvas = getElement("asteroids-canvas");
+    const scoreLabel = getElement("asteroids-score");
+    const livesLabel = getElement("asteroids-lives");
+    const bossLabel = getElement("asteroids-boss");
+    const closeBtn = getElement("asteroids-close");
+    if (!canvas || !scoreLabel || !livesLabel || !bossLabel || !closeBtn) {
+        closeMiniAsteroids();
+        return;
+    }
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+        closeMiniAsteroids();
+        return;
+    }
+
+    closeBtn.addEventListener("click", closeMiniAsteroids);
+
+    asteroidsActive = true;
+    asteroidsUi = { root: wrapper, canvas, ctx, scoreLabel, livesLabel, bossLabel };
+
+    const width = canvas.width;
+    const height = canvas.height;
+    asteroidsState = {
+        lastTs: performance.now(),
+        score: 0,
+        lives: 3,
+        invuln: 1.2,
+        spawnTimer: 0,
+        ship: {
+            x: width / 2,
+            y: height / 2,
+            vx: 0,
+            vy: 0,
+            angle: -Math.PI / 2,
+            radius: 10,
+            cooldown: 0,
+        },
+        bullets: [],
+        enemyShots: [],
+        rocks: [createAsteroidsRock(width, height), createAsteroidsRock(width, height)],
+        boss: null,
+        bossSpawned: false,
+        stars: Array.from({ length: 70 }, () => ({ x: Math.random() * width, y: Math.random() * height, a: 0.2 + Math.random() * 0.6 })),
+    };
+
+    const wrapPos = value => {
+        if (value < 0) return value + width;
+        if (value > width) return value - width;
+        return value;
+    };
+
+    const wrapPosY = value => {
+        if (value < 0) return value + height;
+        if (value > height) return value - height;
+        return value;
+    };
+
+    const drawShip = ship => {
+        ctx.save();
+        ctx.translate(ship.x, ship.y);
+        ctx.rotate(ship.angle + Math.PI / 2);
+        ctx.beginPath();
+        ctx.moveTo(0, -12);
+        ctx.lineTo(8, 10);
+        ctx.lineTo(0, 6);
+        ctx.lineTo(-8, 10);
+        ctx.closePath();
+        ctx.strokeStyle = "#dbeafe";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        if (asteroidsKeys.ArrowUp) {
+            ctx.beginPath();
+            ctx.moveTo(-4, 10);
+            ctx.lineTo(0, 16 + Math.random() * 5);
+            ctx.lineTo(4, 10);
+            ctx.strokeStyle = "#f59e0b";
+            ctx.stroke();
+        }
+        ctx.restore();
+    };
+
+    const drawRock = rock => {
+        ctx.save();
+        ctx.translate(rock.x, rock.y);
+        ctx.rotate(rock.angle);
+        ctx.beginPath();
+        rock.shape.forEach((scale, index) => {
+            const theta = (Math.PI * 2 * index) / rock.shape.length;
+            const px = Math.cos(theta) * rock.radius * scale;
+            const py = Math.sin(theta) * rock.radius * scale;
+            if (index === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+        });
+        ctx.closePath();
+        ctx.strokeStyle = "#9ca3af";
+        ctx.lineWidth = 1.3;
+        ctx.stroke();
+        ctx.restore();
+    };
+
+    const drawBoss = boss => {
+        const isEnraged = !!boss.enraged;
+        ctx.save();
+        ctx.translate(boss.x, boss.y);
+        ctx.rotate(boss.angle);
+
+        if (isEnraged) {
+            ctx.beginPath();
+            ctx.arc(0, 0, 28 + (Math.sin(performance.now() / 95) * 1.8), 0, Math.PI * 2);
+            ctx.strokeStyle = "rgba(251,113,133,.55)";
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
+        }
+
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 24, 14, 0, 0, Math.PI * 2);
+        ctx.strokeStyle = isEnraged ? "#fb7185" : "#fca5a5";
+        ctx.lineWidth = 1.8;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(-20, 8);
+        ctx.lineTo(0, 16);
+        ctx.lineTo(20, 8);
+        ctx.strokeStyle = isEnraged ? "#f43f5e" : "#fb7185";
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(0, -1, 4.2, 0, Math.PI * 2);
+        ctx.strokeStyle = isEnraged ? "#fef08a" : "#fde68a";
+        ctx.lineWidth = 1.3;
+        ctx.stroke();
+        ctx.restore();
+    };
+
+    const spawnBoss = () => {
+        asteroidsState.bossSpawned = true;
+        // Give the player a small buffer when the boss phase starts.
+        asteroidsState.lives = Math.min(5, asteroidsState.lives + 1);
+        asteroidsState.boss = {
+            x: width + 30,
+            y: 70 + Math.random() * (height - 140),
+            vx: -38,
+            vy: 34,
+            radius: 20,
+            hp: 14,
+            maxHp: 14,
+            angle: 0,
+            shotCooldown: 0.5,
+            enraged: false,
+            volley: 0,
+        };
+        showToast("Boss incoming!", "info");
+    };
+
+    const fireBossShot = (boss, directionAngle, speed) => {
+        if (!asteroidsState) return;
+        asteroidsState.enemyShots.push({
+            x: boss.x,
+            y: boss.y,
+            vx: Math.cos(directionAngle) * speed,
+            vy: Math.sin(directionAngle) * speed,
+            life: 2.0,
+        });
+    };
+
+    const triggerStageFlash = () => {
+        const root = asteroidsUi?.root;
+        if (!root) return;
+        root.classList.remove("enrage-flash");
+        // Force reflow to restart animation for future enrages.
+        void root.offsetWidth;
+        root.classList.add("enrage-flash");
+    };
+
+    const respawnShip = () => {
+        const ship = asteroidsState.ship;
+        ship.x = width / 2;
+        ship.y = height / 2;
+        ship.vx = 0;
+        ship.vy = 0;
+        ship.angle = -Math.PI / 2;
+        asteroidsState.invuln = 1.5;
+    };
+
+    const splitRock = rock => {
+        const nextRadius = rock.radius * 0.62;
+        if (nextRadius < 14) return [];
+        return [
+            createAsteroidsRock(width, height, nextRadius, nextRadius + 2),
+            createAsteroidsRock(width, height, nextRadius, nextRadius + 2),
+        ].map(child => ({ ...child, x: rock.x, y: rock.y }));
+    };
+
+    const tick = ts => {
+        if (!asteroidsActive || !asteroidsUi || !asteroidsState) return;
+
+        const dt = clamp((ts - asteroidsState.lastTs) / 1000, 0, 0.04);
+        asteroidsState.lastTs = ts;
+
+        const state = asteroidsState;
+        const ship = state.ship;
+        ship.cooldown = Math.max(0, ship.cooldown - dt);
+        state.invuln = Math.max(0, state.invuln - dt);
+        state.spawnTimer = Math.max(0, state.spawnTimer - dt);
+
+        if (asteroidsKeys.ArrowLeft) ship.angle -= 3.8 * dt;
+        if (asteroidsKeys.ArrowRight) ship.angle += 3.8 * dt;
+        if (asteroidsKeys.ArrowUp) {
+            ship.vx += Math.cos(ship.angle) * 110 * dt;
+            ship.vy += Math.sin(ship.angle) * 110 * dt;
+        }
+
+        ship.vx *= 0.994;
+        ship.vy *= 0.994;
+        ship.x = wrapPos(ship.x + ship.vx * dt);
+        ship.y = wrapPosY(ship.y + ship.vy * dt);
+
+        if (asteroidsKeys[" "] && ship.cooldown <= 0) {
+            ship.cooldown = 0.19;
+            state.bullets.push({
+                x: ship.x,
+                y: ship.y,
+                vx: Math.cos(ship.angle) * 240 + ship.vx,
+                vy: Math.sin(ship.angle) * 240 + ship.vy,
+                life: 1.1,
+            });
+        }
+
+        state.bullets = state.bullets
+            .map(bullet => ({
+                ...bullet,
+                x: wrapPos(bullet.x + bullet.vx * dt),
+                y: wrapPosY(bullet.y + bullet.vy * dt),
+                life: bullet.life - dt,
+            }))
+            .filter(bullet => bullet.life > 0);
+
+        state.enemyShots = state.enemyShots
+            .map(shot => ({
+                ...shot,
+                x: wrapPos(shot.x + shot.vx * dt),
+                y: wrapPosY(shot.y + shot.vy * dt),
+                life: shot.life - dt,
+            }))
+            .filter(shot => shot.life > 0);
+
+        state.rocks = state.rocks.map(rock => ({
+            ...rock,
+            x: wrapPos(rock.x + rock.vx * dt),
+            y: wrapPosY(rock.y + rock.vy * dt),
+            angle: rock.angle + rock.rot * dt,
+        }));
+
+        const newRocks = [];
+        const hitBullets = new Set();
+        const hitRocks = new Set();
+
+        state.rocks.forEach((rock, rockIndex) => {
+            state.bullets.forEach((bullet, bulletIndex) => {
+                const dx = bullet.x - rock.x;
+                const dy = bullet.y - rock.y;
+                if ((dx * dx + dy * dy) <= (rock.radius * rock.radius)) {
+                    hitBullets.add(bulletIndex);
+                    hitRocks.add(rockIndex);
+                }
+            });
+        });
+
+        if (hitBullets.size || hitRocks.size) {
+            state.bullets = state.bullets.filter((_, index) => !hitBullets.has(index));
+            state.rocks = state.rocks.filter((rock, index) => {
+                if (!hitRocks.has(index)) return true;
+                state.score += Math.round(22 + rock.radius);
+                if (!state.boss) {
+                    splitRock(rock).forEach(child => newRocks.push(child));
+                }
+                return false;
+            });
+            state.rocks.push(...newRocks);
+        }
+
+        if (!state.bossSpawned && state.score >= 500) {
+            spawnBoss();
+        }
+
+        if (state.boss) {
+            const boss = state.boss;
+            const hpRatio = boss.hp / boss.maxHp;
+            if (!boss.enraged && hpRatio <= 0.3) {
+                boss.enraged = true;
+                triggerStageFlash();
+                showToast("Boss enraged!", "error");
+            }
+
+            const targetSpeedX = boss.enraged ? 30 : 22;
+            const targetSpeedY = boss.enraged ? 24 : 18;
+            const signX = boss.vx >= 0 ? 1 : -1;
+            const signY = boss.vy >= 0 ? 1 : -1;
+            boss.vx = signX * targetSpeedX;
+            boss.vy = signY * targetSpeedY;
+
+            boss.x += boss.vx * dt;
+            boss.y += boss.vy * dt;
+            boss.angle += (boss.enraged ? 0.9 : 0.45) * dt;
+            boss.shotCooldown = Math.max(0, boss.shotCooldown - dt);
+
+            if (boss.y < 30 || boss.y > height - 30) {
+                boss.vy *= -1;
+            }
+
+            if (boss.x < width * 0.58) {
+                boss.vx = Math.abs(boss.vx);
+            }
+            if (boss.x > width - 22) {
+                boss.vx = -Math.abs(boss.vx);
+            }
+
+            if (boss.shotCooldown <= 0) {
+                boss.volley += 1;
+                const dx = ship.x - boss.x;
+                const dy = ship.y - boss.y;
+                const dist = Math.hypot(dx, dy) || 1;
+                const baseAngle = Math.atan2(dy / dist, dx / dist);
+                const shotSpeed = boss.enraged ? 140 : 110;
+                fireBossShot(boss, baseAngle, shotSpeed);
+                if (boss.enraged && boss.volley % 3 === 0) {
+                    const offset = Math.random() < 0.5 ? -0.18 : 0.18;
+                    fireBossShot(boss, baseAngle + offset, shotSpeed * 0.86);
+                }
+                boss.shotCooldown = boss.enraged ? (1.0 + Math.random() * 0.32) : (1.6 + Math.random() * 0.35);
+            }
+
+            const bossHitBullets = new Set();
+            state.bullets.forEach((bullet, bulletIndex) => {
+                const dx = bullet.x - boss.x;
+                const dy = bullet.y - boss.y;
+                if ((dx * dx + dy * dy) <= (boss.radius * boss.radius)) {
+                    bossHitBullets.add(bulletIndex);
+                    boss.hp -= 1;
+                    state.score += 15;
+                }
+            });
+            if (bossHitBullets.size) {
+                state.bullets = state.bullets.filter((_, index) => !bossHitBullets.has(index));
+            }
+
+            if (boss.hp <= 0) {
+                state.score += 350;
+                state.boss = null;
+                showToast("Boss defeated!", "info");
+            }
+        }
+
+        if (state.invuln <= 0) {
+            for (let index = 0; index < state.rocks.length; index += 1) {
+                const rock = state.rocks[index];
+                const dx = ship.x - rock.x;
+                const dy = ship.y - rock.y;
+                const r = ship.radius + (rock.radius * 0.88);
+                if ((dx * dx + dy * dy) <= (r * r)) {
+                    state.lives -= 1;
+                    if (state.lives <= 0) {
+                        closeMiniAsteroids();
+                        showToast("Asteroids over. Try Konami again.", "info");
+                        return;
+                    }
+                    respawnShip();
+                    break;
+                }
+            }
+
+            if (state.boss) {
+                const dx = ship.x - state.boss.x;
+                const dy = ship.y - state.boss.y;
+                const r = ship.radius + state.boss.radius;
+                if ((dx * dx + dy * dy) <= (r * r)) {
+                    state.lives -= 1;
+                    if (state.lives <= 0) {
+                        closeMiniAsteroids();
+                        showToast("Asteroids over. Try Konami again.", "info");
+                        return;
+                    }
+                    respawnShip();
+                }
+            }
+
+            for (let index = 0; index < state.enemyShots.length; index += 1) {
+                const shot = state.enemyShots[index];
+                const dx = ship.x - shot.x;
+                const dy = ship.y - shot.y;
+                const r = ship.radius + 2;
+                if ((dx * dx + dy * dy) <= (r * r)) {
+                    state.enemyShots.splice(index, 1);
+                    state.lives -= 1;
+                    if (state.lives <= 0) {
+                        closeMiniAsteroids();
+                        showToast("Asteroids over. Try Konami again.", "info");
+                        return;
+                    }
+                    respawnShip();
+                    break;
+                }
+            }
+        }
+
+        // During boss phase, keep ambient asteroid pressure low.
+        const maxRocks = state.boss ? 2 : 6;
+        if (state.rocks.length > maxRocks) {
+            state.rocks = state.rocks
+                .slice()
+                .sort((a, b) => (a.radius - b.radius))
+                .slice(0, maxRocks);
+        }
+
+        if (state.rocks.length < maxRocks && state.spawnTimer <= 0) {
+            state.spawnTimer = state.boss ? 2.7 : 1.2;
+            state.rocks.push(createAsteroidsRock(width, height));
+        }
+
+        ctx.clearRect(0, 0, width, height);
+        ctx.fillStyle = "#070a14";
+        ctx.fillRect(0, 0, width, height);
+
+        state.stars.forEach(star => {
+            ctx.fillStyle = `rgba(165,180,252,${star.a})`;
+            ctx.fillRect(star.x, star.y, 1.5, 1.5);
+        });
+
+        state.rocks.forEach(drawRock);
+
+        if (state.boss) {
+            drawBoss(state.boss);
+        }
+
+        ctx.strokeStyle = "#7dd3fc";
+        ctx.lineWidth = 1.5;
+        state.bullets.forEach(bullet => {
+            ctx.beginPath();
+            ctx.arc(bullet.x, bullet.y, 2, 0, Math.PI * 2);
+            ctx.stroke();
+        });
+
+        ctx.strokeStyle = "#f97316";
+        ctx.lineWidth = 1.4;
+        state.enemyShots.forEach(shot => {
+            ctx.beginPath();
+            ctx.arc(shot.x, shot.y, 2.2, 0, Math.PI * 2);
+            ctx.stroke();
+        });
+
+        if (state.invuln > 0 && Math.floor(ts / 120) % 2 === 0) {
+            ctx.save();
+            ctx.globalAlpha = 0.35;
+            drawShip(ship);
+            ctx.restore();
+        } else {
+            drawShip(ship);
+        }
+
+        asteroidsUi.scoreLabel.textContent = `Score: ${state.score}`;
+        asteroidsUi.livesLabel.textContent = `Lives: ${state.lives}`;
+        if (state.boss) {
+            const pct = Math.max(0, Math.round((state.boss.hp / state.boss.maxHp) * 100));
+            asteroidsUi.bossLabel.classList.remove("d-none");
+            asteroidsUi.bossLabel.classList.toggle("enraged", !!state.boss.enraged);
+            asteroidsUi.bossLabel.textContent = state.boss.enraged ? `Boss: ${pct}% ENRAGED` : `Boss: ${pct}%`;
+        } else {
+            asteroidsUi.bossLabel.classList.add("d-none");
+            asteroidsUi.bossLabel.classList.remove("enraged");
+            asteroidsUi.bossLabel.textContent = "Boss: 0%";
+        }
+        asteroidsRaf = window.requestAnimationFrame(tick);
+    };
+
+    asteroidsRaf = window.requestAnimationFrame(tick);
+}
+
+function triggerKonamiEasterEgg() {
+    if (!APP_CONTEXT.signedIn) {
+        showSignedOutNope();
+        return;
+    }
+    startMiniAsteroids();
+}
+
+function bindKonamiEasterEgg() {
+    document.addEventListener("keydown", event => {
+        if (asteroidsActive) {
+            const key = normalizeKonamiKey(event.key);
+            if (["ArrowLeft", "ArrowRight", "ArrowUp", " "].includes(key)) {
+                event.preventDefault();
+            }
+            asteroidsKeys[key] = true;
+            return;
+        }
+
+        const key = normalizeKonamiKey(event.key);
+        const expected = KONAMI_SEQUENCE[konamiProgress];
+
+        if (key === expected) {
+            konamiProgress += 1;
+            if (konamiResetTimer) window.clearTimeout(konamiResetTimer);
+            konamiResetTimer = window.setTimeout(() => {
+                konamiProgress = 0;
+            }, 2600);
+
+            if (konamiProgress >= KONAMI_SEQUENCE.length) {
+                konamiProgress = 0;
+                if (konamiResetTimer) {
+                    window.clearTimeout(konamiResetTimer);
+                    konamiResetTimer = null;
+                }
+                triggerKonamiEasterEgg();
+            }
+            return;
+        }
+
+        if (key === KONAMI_SEQUENCE[0]) {
+            konamiProgress = 1;
+            return;
+        }
+        konamiProgress = 0;
+    });
+
+    document.addEventListener("keyup", event => {
+        if (!asteroidsActive) return;
+        const key = normalizeKonamiKey(event.key);
+        delete asteroidsKeys[key];
+    });
+}
+
 function bindSearchUi() {
     document.querySelectorAll(".search-tab").forEach(tab => {
         tab.addEventListener("click", () => {
@@ -1978,6 +2668,7 @@ document.addEventListener("DOMContentLoaded", () => {
     bindSearchUi();
     bindDetailAndRail();
     bindInsightButtons();
+    bindKonamiEasterEgg();
     setupSessionTimeout();
 
     if (APP_CONTEXT.signedIn) {

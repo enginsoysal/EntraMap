@@ -1,5 +1,15 @@
 # Change Log
 
+## 0.4.1 - 2026-04-27
+
+- Bumped application version to 0.4.1
+- Added Conditional Access policy-to-group scope mapping for both included and excluded groups
+- Added dynamic group support in mapping and search flows, including membership rule and membership rule processing state details
+- Added CA scope-specific edge metadata and frontend edge styling (include/exclude) with contextual legend visibility
+- Added Konami easter egg behavior: signed-out users get a lightweight "not logged in" prompt; signed-in users get an in-panel mini Asteroids mode
+- Added mini Asteroids enhancements including scanline visual layer, boss encounter, enrage phase cues, and difficulty balancing
+- Updated release documentation in README.md, FILES.md, and LOG.md for version consistency
+
 ## 0.4.0 - 2026-04-22
 
 - Bumped application version to 0.4.0

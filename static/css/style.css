@@ -1224,6 +1224,42 @@ body {
 .leg.app      .leg-dot { background: var(--c-app); }
 .leg.ca_policy .leg-dot { background: var(--c-ca); }
 
+.scope-legend {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(19,22,42,.86);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 6px 10px;
+    pointer-events: auto;
+    backdrop-filter: blur(10px);
+}
+
+.scope-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-secondary);
+    font-size: 0.7rem;
+    white-space: nowrap;
+}
+
+.scope-line {
+    width: 14px;
+    height: 0;
+    border-top: 2px solid;
+    border-radius: 2px;
+}
+
+.scope-chip.include .scope-line {
+    border-top-color: #22c55e;
+}
+
+.scope-chip.exclude .scope-line {
+    border-top-color: #ef4444;
+}
+
 .toolbar-actions {
     display: flex;
     gap: 6px;
@@ -1490,6 +1526,210 @@ body {
 }
 .toast-msg.error { border-color: rgba(239,68,68,.5); background: rgba(239,68,68,.08); color: #f87171; }
 @keyframes fadein { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; } }
+
+/* ============================================================
+   Konami Easter Eggs
+   ============================================================ */
+.konami-nope {
+    position: fixed;
+    left: 50%;
+    bottom: 84px;
+    transform: translateX(-50%);
+    z-index: 2600;
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(12,18,34,.96);
+    border: 1px solid rgba(248,113,113,.45);
+    border-radius: 14px;
+    padding: 10px 12px;
+    box-shadow: 0 20px 40px rgba(0,0,0,.45);
+    animation: nope-in .2s ease;
+}
+
+.konami-nope.bye {
+    opacity: 0;
+    transform: translateX(-50%) translateY(8px);
+    transition: opacity .34s ease, transform .34s ease;
+}
+
+.nope-figure {
+    width: 34px;
+    height: 34px;
+    position: relative;
+    animation: nope-bob 1s ease-in-out infinite;
+}
+
+.nope-head {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fca5a5;
+    border: 1px solid rgba(255,255,255,.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    margin: 0 auto;
+}
+
+.nope-eye {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: #111827;
+}
+
+.nope-body {
+    width: 16px;
+    height: 13px;
+    border-radius: 7px;
+    margin: 2px auto 0;
+    background: #334155;
+    border: 1px solid rgba(255,255,255,.2);
+}
+
+.nope-bubble {
+    color: #fecaca;
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: .01em;
+}
+
+@keyframes nope-in {
+    from { opacity: 0; transform: translateX(-50%) translateY(10px) scale(.97); }
+    to { opacity: 1; transform: translateX(-50%); }
+}
+
+@keyframes nope-bob {
+    0% { transform: translateY(0); }
+    50% { transform: translateY(-2px); }
+    100% { transform: translateY(0); }
+}
+
+.asteroids-mini {
+    position: absolute;
+    right: 18px;
+    bottom: 18px;
+    width: min(560px, calc(100% - 36px));
+    background: rgba(10,14,28,.95);
+    border: 1px solid rgba(125,211,252,.4);
+    border-radius: 14px;
+    box-shadow: 0 22px 50px rgba(0,0,0,.5);
+    z-index: 75;
+    padding: 10px;
+    backdrop-filter: blur(8px);
+}
+
+.asteroids-mini.enrage-flash {
+    animation: asteroids-enrage-pulse 320ms ease-out;
+}
+
+@keyframes asteroids-enrage-pulse {
+    0% {
+        box-shadow: 0 22px 50px rgba(0,0,0,.5), 0 0 0 rgba(244,63,94,0);
+        border-color: rgba(125,211,252,.4);
+    }
+    45% {
+        box-shadow: 0 22px 50px rgba(0,0,0,.5), 0 0 30px rgba(244,63,94,.55);
+        border-color: rgba(244,63,94,.8);
+    }
+    100% {
+        box-shadow: 0 22px 50px rgba(0,0,0,.5), 0 0 0 rgba(244,63,94,0);
+        border-color: rgba(125,211,252,.4);
+    }
+}
+
+.asteroids-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.asteroids-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #7dd3fc;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.asteroids-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: #cbd5e1;
+    font-size: 0.74rem;
+}
+
+#asteroids-boss {
+    color: #fecaca;
+    border: 1px solid rgba(251,113,133,.4);
+    border-radius: 999px;
+    padding: 1px 7px;
+    background: rgba(127,29,29,.35);
+}
+
+#asteroids-boss.enraged {
+    color: #fee2e2;
+    border-color: rgba(244,63,94,.7);
+    background: rgba(136,19,55,.52);
+    box-shadow: 0 0 12px rgba(244,63,94,.35);
+}
+
+.asteroids-stage {
+    position: relative;
+}
+
+#asteroids-close {
+    border: 1px solid rgba(148,163,184,.35);
+    background: rgba(15,23,42,.75);
+    color: #e2e8f0;
+    border-radius: 8px;
+    font-size: 0.72rem;
+    padding: 3px 8px;
+}
+
+#asteroids-close:hover {
+    border-color: rgba(125,211,252,.6);
+    color: #e0f2fe;
+}
+
+#asteroids-canvas {
+    width: 100%;
+    height: auto;
+    border: 1px solid rgba(148,163,184,.25);
+    border-radius: 10px;
+    display: block;
+    background: #05080f;
+}
+
+.asteroids-scanlines {
+    position: absolute;
+    inset: 0;
+    border-radius: 10px;
+    pointer-events: none;
+    background-image: repeating-linear-gradient(
+        to bottom,
+        rgba(125, 211, 252, 0.06) 0,
+        rgba(125, 211, 252, 0.06) 1px,
+        rgba(2, 6, 23, 0.0) 1px,
+        rgba(2, 6, 23, 0.0) 4px
+    );
+    mix-blend-mode: screen;
+    opacity: 0.4;
+}
+
+.asteroids-help {
+    margin-top: 7px;
+    color: #94a3b8;
+    font-size: 0.72rem;
+}
 
 /* ============================================================
    Scrollbar
@@ -2003,6 +2243,10 @@ body {
 }
 
 @media (max-width: 1180px) {
+    .scope-legend {
+        display: none;
+    }
+
     #drilldown-hint {
         display: none;
     }

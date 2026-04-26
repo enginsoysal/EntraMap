@@ -48,16 +48,17 @@ class CAMapEngine:
         apps_cond = policy.get("conditions", {}).get("applications", {})
 
         # Fetch groups and apps concurrently (60+ items might take long sequentially)
-        group_ids = users_cond.get("includeGroups", [])[:120]
+        include_group_ids = users_cond.get("includeGroups", [])[:120]
+        exclude_group_ids = users_cond.get("excludeGroups", [])[:120]
         app_client_ids = apps_cond.get("includeApplications", [])[:120]
 
         # Concurrent fetching with ThreadPoolExecutor
-        def fetch_group(group_id: str):
+        def fetch_group(group_id: str, scope: str):
             group = GraphService.get(
-                f"/groups/{group_id}?$select=id,displayName,description,groupTypes,securityEnabled,mailEnabled",
+                f"/groups/{group_id}?$select=id,displayName,description,groupTypes,securityEnabled,mailEnabled,membershipRule,membershipRuleProcessingState",
                 token,
             )
-            return ("group", group_id, group)
+            return ("group", group_id, scope, group)
 
         def fetch_app(app_client_id: str):
             sp = GraphService.get(
@@ -70,23 +71,46 @@ class CAMapEngine:
         with ThreadPoolExecutor(max_workers=10) as executor:
             # Submit all fetches
             futures = []
-            for gid in group_ids:
-                futures.append(executor.submit(fetch_group, gid))
+            for gid in include_group_ids:
+                futures.append(executor.submit(fetch_group, gid, "included in"))
+            for gid in exclude_group_ids:
+                futures.append(executor.submit(fetch_group, gid, "excluded from"))
             for acid in app_client_ids:
                 futures.append(executor.submit(fetch_app, acid))
 
             # Process results as they complete
             for future in as_completed(futures):
                 try:
-                    obj_type, obj_id, obj_data = future.result()
+                    result = future.result()
+                    obj_type = result[0]
                     
-                    if obj_type == "group" and obj_data and "error" not in obj_data:
+                    if obj_type == "group":
+                        _, _, scope, obj_data = result
+                        if not obj_data or "error" in obj_data:
+                            continue
                         add_node({"id": obj_data["id"], "label": obj_data.get("displayName", "Group"), "type": "group", "data": CAMapEngine._clean(obj_data)})
-                        edges.append({"source": obj_data["id"], "target": policy["id"], "label": "included in"})
+                        edges.append(
+                            {
+                                "source": obj_data["id"],
+                                "target": policy["id"],
+                                "label": scope,
+                                "scopeKind": "exclude" if scope == "excluded from" else "include",
+                            }
+                        )
                     
-                    elif obj_type == "app" and obj_data:
+                    elif obj_type == "app":
+                        _, _, obj_data = result
+                        if not obj_data:
+                            continue
                         add_node({"id": obj_data["id"], "label": obj_data.get("displayName", "App"), "type": "app", "data": CAMapEngine._clean(obj_data)})
-                        edges.append({"source": obj_data["id"], "target": policy["id"], "label": "included in"})
+                        edges.append(
+                            {
+                                "source": obj_data["id"],
+                                "target": policy["id"],
+                                "label": "included in",
+                                "scopeKind": "include",
+                            }
+                        )
                 except Exception:
                     # If one fetch fails, skip it and continue
                     pass
