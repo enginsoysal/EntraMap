@@ -74,7 +74,6 @@ def configure_telemetry(app: Flask) -> None:
     try:
         from opencensus.ext.azure.log_exporter import AzureLogHandler
         from opencensus.ext.azure.trace_exporter import AzureExporter
-        from opencensus.ext.flask.flask_middleware import FlaskMiddleware
         from opencensus.trace import config_integration
         from opencensus.trace.samplers import ProbabilitySampler
     except ImportError:
@@ -83,15 +82,23 @@ def configure_telemetry(app: Flask) -> None:
         )
         return
 
+    try:
+        from opencensus.ext.flask.flask_middleware import FlaskMiddleware
+    except ImportError:
+        FlaskMiddleware = None
+
     config_integration.trace_integrations(["requests"])
-    exporter = AzureExporter(instrumentation_key=instrumentation_key)
-    middleware = FlaskMiddleware(
-        app,
-        exporter=exporter,
-        sampler=ProbabilitySampler(rate=1.0),
-        excludelist_paths=["/api/health"],
-    )
-    app.extensions["applicationinsights_middleware"] = middleware
+    if FlaskMiddleware:
+        exporter = AzureExporter(instrumentation_key=instrumentation_key)
+        middleware = FlaskMiddleware(
+            app,
+            exporter=exporter,
+            sampler=ProbabilitySampler(rate=1.0),
+            excludelist_paths=["/api/health"],
+        )
+        app.extensions["applicationinsights_middleware"] = middleware
+    else:
+        app.logger.info("OpenCensus Flask middleware not installed; request traces are disabled for instrumentation-key mode")
 
     if Config.APPLICATIONINSIGHTS_ENABLE_LOGGING:
         app.logger.addHandler(AzureLogHandler(instrumentation_key=instrumentation_key))

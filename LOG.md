@@ -1,5 +1,12 @@
 # Change Log
 
+## 0.5.1 - 2026-04-29
+
+- Bumped application version to 0.5.1
+- Removed `opencensus-ext-flask` from requirements to resolve Flask 3.x dependency conflicts during environment setup
+- Updated telemetry fallback so instrumentation-key mode keeps OpenCensus logging when Flask middleware is unavailable
+- Updated release documentation in README.md, FILES.md, and LOG.md for version consistency
+
 ## 0.5.0 - 2026-04-29
 
 - Bumped application version to 0.5.0
