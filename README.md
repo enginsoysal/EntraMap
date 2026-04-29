@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Version 0.4.1
+Version 0.5.0
 
 EntraMap is a Flask web application that signs users in with Microsoft Entra ID and visualizes tenant relationships as an interactive graph. It helps you explore users, devices, groups, applications, and Conditional Access policies from a single screen.
 
@@ -11,7 +11,7 @@ EntraMap is a Flask web application that signs users in with Microsoft Entra ID 
 - Multi-tenant Microsoft sign-in with delegated Microsoft Graph permissions
 - Homepage-first login popup flow with contextual onboarding tabs and in-app release transparency
 - Search for users, groups, devices, Intune apps, and Conditional Access policies
-- Group deletion impact analysis across CA, Intune, IAM/PIM, Administrative Units, group nesting, licensing, Entitlement Management, M365 workloads, and Exchange workload signals
+- Group deletion impact analysis across CA, Intune apps and policy domains, IAM/PIM, Administrative Units, group nesting, licensing, Entitlement Management, M365 workloads, and Exchange workload signals
 - Coverage transparency with completeness score, constrained-domain reasons, and scan-limit metadata
 - Executive go/no-go delete guidance with top evidence, remediation guidance, owner suggestions, and per-group checklist tracking
 - Saved checklist progress per group with reset and open-actions filtering
@@ -27,30 +27,41 @@ EntraMap is a Flask web application that signs users in with Microsoft Entra ID 
 - Operational insights panel with quick risk filters
 - JSON export of the current graph for reporting and handover
 - CSV export of group impact analysis for governance and CAB workflows
+- Plain TXT export of group impact findings for quick change/CAB handover notes
+- Impact graph projection from group findings for visual dependency mapping
+- Impact graph domain/severity styling and one-click standard/impact map toggle
+- Impact graph toolbar filters, domain chips, and filtered-view JSON export
+- Persistent impact filter profiles with CAB/Security presets and explain mode
+- Group map compare action with node/edge delta metrics, edge relation summaries, and overlap/only-in-map lists
+- Compare controls for node type filtering, in-panel search, and impact-score sorting
+- Compare export in JSON and CSV using the currently visible filtered compare result
+- Interactive in-app tutorial launcher under the search field with four guided levels (Basic, Advanced, Expert, God Mode)
+- Step-by-step tutorial coach overlay with highlighted click targets, directional callouts, and required actions
+- Tutorial sandbox mode with dummy search results, dummy graph data, and dummy compare output for safe onboarding drills
+- Reusable PowerShell smoke-check script for homepage, health endpoint, and social preview validation
 - Read-only deep links to Entra portal object pages
 - Frontend onboarding tabs embedded in the authentication popup (Sign In, Features, How To Use, API Permissions, Changelog)
 - In-app changelog rendered directly from `LOG.md`
 - Idle session timeout warning with 60-second countdown before auto sign-out
 
-## Latest Changes (0.4.1)
+## Latest Changes (0.5.0)
 
-- Added policy-to-group mapping improvements for Conditional Access with explicit included and excluded group scope visibility in the graph
-- Added dynamic group support across mapping and search, including membership rule and rule-processing state details in the UI
-- Added CA scope edge coloring and contextual scope legend behavior so include/exclude targeting is easier to interpret
-- Added a Konami easter egg flow: signed-out users see a lightweight "Nope... you're not logged in." character prompt; signed-in users can launch an in-panel mini Asteroids mode
-- Expanded the mini Asteroids mode with boss encounter, enrage phase visuals, and balance tuning for a softer difficulty curve
-- Continued documentation and release consistency updates across README, FILES, and LOG
+- Bumped application version to 0.5.0
+- Stabilized tutorial reliability for Advanced, Expert, and God Mode progression across dynamic UI updates
+- Routed tutorial group impact views and exports through sandbox dummy data to prevent session-expired interruptions during guided runs
+- Added explicit "What this does" and "Why it matters" guidance blocks in the tutorial coach for clearer operator training context
+- Updated release documentation in README.md, FILES.md, and LOG.md for version consistency
 
-## 0.4.1 Focus
+## 0.4.11 Focus
 
-Version 0.4.1 focuses on two themes: clearer policy targeting visibility for real operational mapping, and a playful but controlled in-app easter egg experience that stays isolated from the core tenant workflow.
+Version 0.4.11 focuses on interactive operator onboarding: guided walkthroughs for search, map, impact, compare, and export flows using safe dummy data.
 
-Operational highlights in 0.4.1:
+Operational highlights in 0.4.11:
 
-- clearer policy scoping (included vs excluded groups)
-- deeper dynamic group context (rule + processing state)
-- stronger graph readability through scope-specific edge styling and legend cues
-- optional mini-game easter egg that never takes over the full page
+- in-panel tutorial launcher below search with one-click phase selection
+- progressive guided tracks from basic usage up to expert and god-mode operator drills
+- click/type-driven tutorial completion flow with visual target emphasis
+- dummy-data sandbox paths so onboarding never touches real tenant data
 
 ## Screenshots
 
@@ -125,6 +136,9 @@ Add these delegated permissions:
 Optional (recommended if you want full Group Impact coverage without partial domains):
 
 - AdministrativeUnit.Read.All
+- DeviceManagementConfiguration.Read.All
+- DeviceManagementManagedDevices.Read.All
+- DeviceManagementServiceConfig.Read.All
 
 Notes:
 
@@ -173,7 +187,19 @@ Copy-Item .env.example .env
 python app.py
 ```
 
-5. Open:
+5. Optional: run smoke checks (starts/stops app automatically by default):
+
+```powershell
+./scripts/smoke-check.ps1
+```
+
+If the app is already running, use:
+
+```powershell
+./scripts/smoke-check.ps1 -NoStart
+```
+
+6. Open:
 
 ```text
 http://localhost:5000

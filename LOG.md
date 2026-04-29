@@ -1,5 +1,187 @@
 # Change Log
 
+## 0.5.0 - 2026-04-29
+
+- Bumped application version to 0.5.0
+- Stabilized tutorial reliability for Advanced, Expert, and God Mode progression across dynamic UI updates
+- Routed tutorial group impact views and exports through sandbox dummy data to prevent session-expired interruptions during guided runs
+- Added explicit "What this does" and "Why it matters" guidance blocks in the tutorial coach for clearer operator training context
+- Updated release documentation in README.md, FILES.md, and LOG.md for version consistency
+
+## 0.4.21 - 2026-04-29
+
+- Bumped application version to 0.4.21
+- Added explicit "What this does" and "Why it matters" sections in the tutorial coach UI
+- Added automatic what/why narrative parsing for existing tutorial steps
+- Updated release documentation in README.md, FILES.md, and LOG.md for version consistency
+
+## 0.4.20 - 2026-04-29
+
+- Bumped application version to 0.4.20
+- Routed tutorial group impact views and impact exports through dummy sandbox data so guided steps no longer trigger session-expired API failures
+- Rewrote tutorial step descriptions to explain both what the action does and why it matters in the workflow
+- Updated release documentation in README.md, FILES.md, and LOG.md for version consistency
+
+## 0.4.19 - 2026-04-29
+
+- Bumped application version to 0.4.19
+- Added a placement override for detail-panel and compare action stacks so the tutorial coach prefers sitting above action buttons
+- Prevented the tutorial coach from covering the next guided action in stacked button flows such as Export impact report -> Load impact graph
+- Updated release documentation in README.md, FILES.md, and LOG.md for version consistency
+
+## 0.4.18 - 2026-04-29
+
+- Bumped application version to 0.4.18
+- Refined tutorial coach placement to center on the active target within the current pane
+- Added smarter above/below placement based on available space inside left and detail panes
+- Added tighter pane-based max-height and text wrapping so long tutorial copy remains readable
+- Updated release documentation in README.md, FILES.md, and LOG.md for version consistency
+
+## 0.4.17 - 2026-04-29
+
+- Bumped application version to 0.4.17
+- Fixed tutorial stalls where Advanced and Expert steps could remain waiting after the required state was already active
+- Made the tutorial coach pane-aware with narrower sizing and wrapped action buttons in left/detail panes
+- Added state-sync checks so tutorial progress advances when targets load late but the step is already satisfied
+- Updated release documentation in README.md, FILES.md, and LOG.md for version consistency
+
+## 0.4.16 - 2026-04-29
+
+- Bumped application version to 0.4.16
+- Added a live tutorial launcher badge showing active level and step progress (for example: Advanced: 3/11)
+- Synced launcher progress updates across tutorial start, step progression, and tutorial stop/completion
+- Updated release documentation in README.md, FILES.md, and LOG.md for version consistency
+
+## 0.4.15 - 2026-04-29
+
+- Bumped application version to 0.4.15
+- Added pulsing tutorial coach visuals with viewport-safe sizing and scrollable content
+- Added explicit off-screen target guidance with a "Find it ✨" jump-to-target action
+- Expanded Advanced, Expert, and God Mode tutorial flows with more practical guided steps
+- Added tutorial completion support for copy-object-ID actions to avoid step stalls
+- Updated release documentation in README.md, FILES.md, and LOG.md for version consistency
+
+## 0.4.14 - 2026-04-29
+
+- Bumped application version to 0.4.14
+- Reworked tutorial coach positioning so it stays near the active element in left/detail/graph panes
+- Expanded Basic tutorial flow from 4 steps to 8 practical onboarding steps
+- Added completion-state checks for linked-object focus transitions to avoid false stalls
+- Updated release documentation in README.md, FILES.md, and LOG.md for version consistency
+
+## 0.4.13 - 2026-04-29
+
+- Bumped application version to 0.4.13
+- Improved tutorial coach placement to avoid blocking critical controls while guiding steps
+- Added state-based fallback completion checks for guided steps that depend on map/context transitions
+- Expanded guided query matching and progression robustness in advanced/expert/god-mode tracks
+- Added a tutorial launch button under Microsoft sign-in for users who are not signed in
+- Updated release documentation in README.md, FILES.md, and LOG.md for version consistency
+
+## 0.4.12 - 2026-04-29
+
+- Bumped application version to 0.4.12
+- Standardized tutorial launcher and guided-step UI copy to English
+- Fixed tutorial progression stalls on result-click steps by waiting for dynamic targets before binding actions
+- Added Tier-0 query matching for both `tier0` and `tier-0` in guided search steps
+- Updated Expert tutorial to start from a clean, self-contained flow instead of depending on previous phase context
+- Updated release documentation in README.md, FILES.md, and LOG.md for version consistency
+
+## 0.4.11 - 2026-04-29
+
+- Bumped application version to 0.4.11
+- Added an interactive tutorial launch button directly under the search field
+- Added four guided tutorial phases: Basis, Advanced, Expert, and God Mode
+- Added tutorial coach overlays with highlighted click targets and directional callouts
+- Added tutorial sandbox mode with dummy search results, dummy graph data, and dummy compare output
+- Updated release documentation in README.md, FILES.md, and LOG.md for version consistency
+
+## 0.4.10 - 2026-04-29
+
+- Bumped application version to 0.4.10
+- Added compare controls for node type filtering, search, and impact-score sorting
+- Added top Standard-only and Impact-only edge relation summaries in compare results
+- Added compare export actions (JSON and CSV) based on active visible compare data
+- Updated release documentation in README.md, FILES.md, and LOG.md for version consistency
+
+## 0.4.9 - 2026-04-29
+
+- Bumped application version to 0.4.9
+- Upgraded group map compare panel with node/edge overlap and delta metrics
+- Added Standard-only, Impact-only, and overlap node list sections in compare results
+- Added quick compare actions to open standard or impact graph directly from compare output
+- Updated release documentation in README.md, FILES.md, and LOG.md for version consistency
+
+## 0.4.8 - 2026-04-29
+
+- Bumped application version to 0.4.8
+- Added `scripts/smoke-check.ps1` to validate homepage, health API, and social preview asset in a repeatable way
+- Updated social metadata image mapping to use `static/brand/social-preview.png`
+- Moved suspected unused brand assets into `static/brand/_unused/` quarantine instead of hard deletion
+- Updated release documentation in README.md, FILES.md, and LOG.md for version consistency
+
+## 0.4.7 - 2026-04-28
+
+- Bumped application version to 0.4.7
+- Added persistent impact filter state (domain, severity, explain mode) with localStorage
+- Added impact profile presets for CAB, Security, and Reset workflows
+- Added explain mode details in relationship rail chips and detail panel for projected impact nodes
+- Added group map compare action using `/api/map/group/<group_id>/compare` with overlap and delta KPI summary
+- Updated release documentation in README.md, FILES.md, and LOG.md for version consistency
+
+## 0.4.6 - 2026-04-28
+
+- Bumped application version to 0.4.6
+- Added impact graph toolbar filters for severity and domain selection
+- Added clickable domain chips to focus impact nodes/edges per domain
+- Added filtered graph view export as JSON with active map mode and filter context
+- Updated group refresh and deep-refresh behavior to respect active map mode
+- Updated release documentation in README.md, FILES.md, and LOG.md for version consistency
+
+## 0.4.5 - 2026-04-28
+
+- Bumped application version to 0.4.5
+- Added impact-domain and severity-aware Cytoscape styling for projected impact graph nodes and edges
+- Added quick group map mode toggle actions in the detail panel (Load standard graph / Load impact graph)
+- Kept dedicated impact map endpoint and standard group map endpoint behavior unchanged
+- Updated release documentation in README.md, FILES.md, and LOG.md for version consistency
+
+## 0.4.4 - 2026-04-28
+
+- Bumped application version to 0.4.4
+- Added group impact graph builder in GroupMapEngine that projects impact findings into graph nodes and edges
+- Added dedicated group impact map endpoint: `/api/map/group/<group_id>/impact`
+- Added Group detail action to load impact graph directly in the existing graph canvas
+- Kept existing standard group map behavior unchanged (`/api/map/group/<group_id>`)
+- Updated release documentation in README.md, FILES.md, and LOG.md for version consistency
+
+## 0.4.3 - 2026-04-28
+
+- Bumped application version to 0.4.3
+- Added server-side TXT renderer for group impact payloads in Flask
+- Added dedicated TXT impact endpoint: `/api/impact/group/<group_id>/txt`
+- Updated frontend TXT export flow to consume backend TXT output
+- Kept JSON and CSV impact export behavior unchanged
+- Updated release documentation in README.md, FILES.md, and LOG.md for version consistency
+
+## 0.4.2 - 2026-04-28
+
+- Bumped application version to 0.4.2
+- Expanded group delete impact coverage with additional Intune assignment domains:
+	- Device Configurations
+	- Settings Catalog Policies
+	- Administrative Templates
+	- Compliance Policies
+	- App Protection Policies
+	- App Configuration Policies
+	- Platform Scripts and Proactive Remediation Scripts
+	- Autopilot Deployment Profiles and Enrollment Status Page profiles
+	- Windows 365 Cloud PC provisioning and user settings
+- Added generic assignment-target matching helpers in GroupImpactEngine to normalize included/excluded group scope detection across Intune policy domains
+- Added v1.0-first with beta fallback behavior for newly added Intune impact domains
+- Added plain TXT export for group impact findings in addition to existing JSON and CSV export paths
+- Updated release documentation in README.md, FILES.md, and LOG.md for version consistency
+
 ## 0.4.1 - 2026-04-27
 
 - Bumped application version to 0.4.1

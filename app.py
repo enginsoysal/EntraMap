@@ -11,13 +11,14 @@ PERFORMANCE OPTIMIZATIONS:
 """
 
 import os
+import logging
 from html import escape
 from pathlib import Path
 from datetime import timedelta
 from functools import wraps
 from urllib.parse import urlparse
 
-from flask import Flask, render_template, jsonify, request, redirect, session, url_for
+from flask import Flask, render_template, jsonify, request, redirect, session, url_for, Response
 from flask_session import Session
 from flask_compress import Compress
 import importlib
@@ -42,6 +43,64 @@ from engines.ca_map_engine import CAMapEngine
 from engines.group_impact_engine import GroupImpactEngine
 
 
+def configure_telemetry(app: Flask) -> None:
+    """Enable Azure Monitor telemetry when configured."""
+    connection_string = Config.APPLICATIONINSIGHTS_CONNECTION_STRING
+    instrumentation_key = Config.APPINSIGHTS_INSTRUMENTATIONKEY
+    if not connection_string and not instrumentation_key:
+        return
+
+    if connection_string:
+        try:
+            from azure.monitor.opentelemetry import configure_azure_monitor
+        except ImportError:
+            app.logger.warning(
+                "Application Insights connection string is configured but azure-monitor-opentelemetry is not installed."
+            )
+            return
+
+        options = {
+            "connection_string": connection_string,
+        }
+        if Config.APPLICATIONINSIGHTS_ENABLE_LOGGING:
+            options["logger_name"] = app.logger.name
+            app.logger.setLevel(logging.INFO)
+
+        configure_azure_monitor(**options)
+        app.config["APPLICATIONINSIGHTS_PROVIDER"] = "azure-monitor-opentelemetry"
+        app.logger.info("Azure Monitor telemetry enabled via connection string")
+        return
+
+    try:
+        from opencensus.ext.azure.log_exporter import AzureLogHandler
+        from opencensus.ext.azure.trace_exporter import AzureExporter
+        from opencensus.ext.flask.flask_middleware import FlaskMiddleware
+        from opencensus.trace import config_integration
+        from opencensus.trace.samplers import ProbabilitySampler
+    except ImportError:
+        app.logger.warning(
+            "Application Insights instrumentation key is configured but OpenCensus dependencies are not installed."
+        )
+        return
+
+    config_integration.trace_integrations(["requests"])
+    exporter = AzureExporter(instrumentation_key=instrumentation_key)
+    middleware = FlaskMiddleware(
+        app,
+        exporter=exporter,
+        sampler=ProbabilitySampler(rate=1.0),
+        excludelist_paths=["/api/health"],
+    )
+    app.extensions["applicationinsights_middleware"] = middleware
+
+    if Config.APPLICATIONINSIGHTS_ENABLE_LOGGING:
+        app.logger.addHandler(AzureLogHandler(instrumentation_key=instrumentation_key))
+        app.logger.setLevel(logging.INFO)
+
+    app.config["APPLICATIONINSIGHTS_PROVIDER"] = "opencensus"
+    app.logger.info("Application Insights telemetry enabled via instrumentation key")
+
+
 # ────────────────────────────────────────────────────────────────────────────
 # Flask App Setup
 # ────────────────────────────────────────────────────────────────────────────
@@ -50,6 +109,7 @@ def create_app() -> Flask:
     """Create and configure Flask application"""
     app = Flask(__name__)
     app.secret_key = Config.SECRET_KEY
+    configure_telemetry(app)
     
     # Enable Gzip compression for JSON responses (reduces size by ~70%)
     Compress(app)
@@ -181,6 +241,40 @@ def render_changelog_html() -> Markup:
     return Markup("".join(parts))
 
 
+def render_group_impact_txt(result: dict) -> str:
+    """Render group impact payload to a compact text handover format."""
+    summary = result.get("summary", {}) or {}
+    group = result.get("group", {}) or {}
+
+    lines = []
+    lines.append(f"Group: {group.get('displayName', '')}")
+    lines.append(f"Group ID: {group.get('id', '')}")
+    risk_label = summary.get("riskLabel") or summary.get("riskLevel") or "Unknown"
+    lines.append(f"Risk: {risk_label} ({summary.get('riskScore', '')})")
+    lines.append(f"Coverage: {summary.get('coverageScore', '')}% ({summary.get('confidence', '')})")
+    lines.append("")
+    lines.append("Findings:")
+
+    domains = result.get("domains", []) if isinstance(result.get("domains"), list) else []
+    found = False
+    for domain in domains:
+        label = domain.get("label") or domain.get("key") or "Domain"
+        findings = domain.get("findings", []) if isinstance(domain.get("findings"), list) else []
+        for item in findings:
+            found = True
+            severity = str(item.get("severity", "info")).upper()
+            impact = item.get("impact", "impact")
+            name = item.get("name") or "(unnamed)"
+            finding_id = item.get("id", "")
+            suffix = f" | {finding_id}" if finding_id else ""
+            lines.append(f"[{severity}] {label} | {impact} | {name}{suffix}")
+
+    if not found:
+        lines.append("No linked resources found in currently readable domains.")
+
+    return "\n".join(lines)
+
+
 # ────────────────────────────────────────────────────────────────────────────
 # Engine Initialization
 # ────────────────────────────────────────────────────────────────────────────
@@ -221,7 +315,7 @@ def index():
     user = SessionService.get_user(session)
     base_url = request.url_root.rstrip("/")
     page_url = f"{base_url}{request.path}"
-    preview_image_url = f"{base_url}/static/brand/backEnd.png"
+    preview_image_url = f"{base_url}/static/brand/social-preview.png"
     return render_template(
         "index.html",
         changelog_html=render_changelog_html(),
@@ -379,6 +473,48 @@ def group_map(group_id):
     return jsonify({"nodes": nodes, "edges": edges})
 
 
+@app.route("/api/map/group/<group_id>/impact")
+@login_required
+def group_impact_map(group_id):
+    token = auth_engine.get_token(session)
+    nodes, edges, error = GroupMapEngine.build_impact_graph(group_id, token)
+
+    if error:
+        return jsonify(error), error.get("status", 404)
+
+    return jsonify({"nodes": nodes, "edges": edges})
+
+
+@app.route("/api/map/group/<group_id>/compare")
+@login_required
+def group_compare_map(group_id):
+    token = auth_engine.get_token(session)
+
+    standard_nodes, standard_edges, standard_error = GroupMapEngine.build(group_id, token)
+    if standard_error:
+        return jsonify({
+            "error": standard_error.get("error", "Unable to build standard group map"),
+            "source": "standard",
+            "status": standard_error.get("status", 404),
+        }), standard_error.get("status", 404)
+
+    impact_nodes, impact_edges, impact_error = GroupMapEngine.build_impact_graph(group_id, token)
+    if impact_error:
+        return jsonify({
+            "error": impact_error.get("error", "Unable to build impact group map"),
+            "source": "impact",
+            "status": impact_error.get("status", 404),
+        }), impact_error.get("status", 404)
+
+    return jsonify(
+        {
+            "groupId": group_id,
+            "standard": {"nodes": standard_nodes, "edges": standard_edges},
+            "impact": {"nodes": impact_nodes, "edges": impact_edges},
+        }
+    )
+
+
 @app.route("/api/map/app/<app_id>")
 @login_required
 def app_map(app_id):
@@ -417,6 +553,19 @@ def group_impact(group_id):
         return jsonify(error), error.get("status", 404)
 
     return jsonify(result)
+
+
+@app.route("/api/impact/group/<group_id>/txt")
+@login_required
+def group_impact_txt(group_id):
+    token = auth_engine.get_token(session)
+    result, error = GroupImpactEngine.build(group_id, token)
+
+    if error:
+        return jsonify(error), error.get("status", 404)
+
+    payload = render_group_impact_txt(result)
+    return Response(payload, mimetype="text/plain; charset=utf-8")
 
 
 @app.route("/api/debug/group-impact/<group_id>")

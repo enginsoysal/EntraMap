@@ -1,6 +1,6 @@
 # Files Reference
 
-Version 0.4.1
+Version 0.5.0
 
 This file describes the purpose of each file in the repository.
 
@@ -12,6 +12,9 @@ Main Flask application.
 Responsibilities:
 - Initializes Flask app and session configuration
 - Registers authentication, search, details, map, health, and group impact routes
+- Exposes group impact TXT export route at `/api/impact/group/<group_id>/txt`
+- Exposes group impact graph route at `/api/map/group/<group_id>/impact`
+- Exposes group map compare route at `/api/map/group/<group_id>/compare`
 - Loads and renders the signed-out changelog content from `LOG.md`
 - Delegates business logic to engines and services
 - Applies response security headers and compression
@@ -34,6 +37,15 @@ Release history and version notes.
 ### FILES.md
 This file. It acts as a file inventory and quick project reference.
 
+### scripts/smoke-check.ps1
+Operational smoke validation script.
+
+Responsibilities:
+- Optionally starts the Flask app for validation and stops it afterwards
+- Verifies homepage response and OG social preview metadata
+- Verifies `/api/health` response availability and payload shape
+- Verifies static social preview asset availability (`/static/brand/social-preview.png`)
+
 ## Templates
 
 ### templates/index.html
@@ -41,6 +53,7 @@ Main application page for both signed-in and signed-out states.
 
 Responsibilities:
 - Renders the left search panel
+- Renders the tutorial launch button and phase picker below the search field
 - Renders the operational insights section
 - Renders the graph container
 - Shows auth popup onboarding tabs (Sign In, Features, How To Use, API Permissions, Changelog) when signed out
@@ -88,6 +101,18 @@ Responsibilities:
 - Supports graph export and read-only helper actions
 - Manages popup auth tabs, permission accordion, signed-out frontend mode, and session timeout behavior
 - Renders group impact executive guidance, remediation workflows, checklist persistence, and export actions
+- Supports group impact export in JSON, CSV, and plain TXT formats
+- Supports one-click loading of impact findings as graph links for group objects
+- Supports quick map-mode switching (standard vs impact) for group objects
+- Applies impact domain/severity visual styling for projected impact nodes and edges
+- Supports in-toolbar impact filters (severity + domain chips) and filtered-view graph export
+- Persists impact filter/explain profile state and supports CAB/Security/Reset presets
+- Supports standard-vs-impact map compare with overlap and delta list views in the group impact panel
+- Supports compare node filters (type/search), impact-score sorting, and compare JSON/CSV export
+- Supports top edge-delta relation summaries for Standard-only and Impact-only map differences
+- Supports a fully interactive tutorial coach with four levels (Basic, Advanced, Expert, God Mode)
+- Shows a live tutorial launcher status badge with active level and current step progress
+- Supports tutorial sandbox mode with dummy search results, dummy map graphs, and dummy compare output
 - Handles Konami easter egg behavior (signed-out prompt and signed-in mini Asteroids mode)
 - Displays notifications and loading states
 
@@ -96,6 +121,15 @@ Primary EntraMap brand logo used in header and auth popup.
 
 ### static/brand/favicon.svg
 Favicon used in the browser tab.
+
+### static/brand/social-preview.png
+Primary social share image used by OG/Twitter metadata.
+
+### static/brand/_unused/
+Quarantine folder for suspected unused assets.
+
+Purpose:
+- Holds reversible cleanup candidates so files are not hard-deleted before confirmation
 
 ## Runtime-Only Files
 
@@ -118,6 +152,7 @@ Independent feature engines (auth, search types, map types).
 
 Notable current additions:
 - `group_impact_engine.py` performs pre-delete dependency analysis for groups across policies, apps, roles, licensing, governance, and collaboration workloads.
+- Group impact coverage now includes additional Intune policy assignments (device configurations, settings catalog, admin templates, compliance, app protection/configuration, scripts, enrollment profiles, and Cloud PC policy surfaces).
 
 Current notable product surface built on top of these engines:
 - search and relationship mapping for users, groups, devices, Intune apps, and Conditional Access policies
@@ -136,4 +171,7 @@ CSS assets.
 JavaScript assets.
 
 ### static/brand/
-Brand assets (logo and favicon).
+Brand assets (logo, favicon, social preview, and quarantine candidates).
+
+### scripts/
+Operational utility scripts for local validation and maintenance.

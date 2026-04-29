@@ -61,6 +61,21 @@
                 <input id="search-input" type="text" class="form-control search-field" placeholder="Search users, groups, devices, apps, or policies..." autocomplete="off" spellcheck="false" />
                 <span id="search-spinner" class="search-spinner d-none"><i class="fas fa-circle-notch fa-spin"></i></span>
             </div>
+            <div class="tutorial-launch-wrap">
+                <button id="btn-start-tutorial" class="tutorial-launch-btn" type="button">
+                    <i class="fas fa-route"></i> Start Interactive Tutorial
+                </button>
+                <div id="tutorial-launch-status" class="tutorial-launch-status" aria-live="polite">No tutorial running</div>
+            </div>
+            <div id="tutorial-level-picker" class="tutorial-level-picker d-none" aria-live="polite">
+                <div class="tutorial-level-title">Choose your tutorial level</div>
+                <div class="tutorial-level-grid">
+                    <button class="tutorial-level-btn" type="button" data-tutorial-phase="basic">1. Basic</button>
+                    <button class="tutorial-level-btn" type="button" data-tutorial-phase="advanced">2. Advanced</button>
+                    <button class="tutorial-level-btn" type="button" data-tutorial-phase="expert">3. Expert</button>
+                    <button class="tutorial-level-btn" type="button" data-tutorial-phase="god_mode">4. God Mode</button>
+                </div>
+            </div>
         </div>
 
         <div id="search-results-wrap"><div id="search-results"></div></div>
@@ -93,6 +108,7 @@
                 <span class="scope-chip include"><span class="scope-line"></span>Included scope</span>
                 <span class="scope-chip exclude"><span class="scope-line"></span>Excluded scope</span>
             </div>
+            <div id="impact-graph-controls" class="impact-graph-controls d-none" aria-label="Impact graph filters"></div>
             <div id="drilldown-hint"><i class="fas fa-computer-mouse"></i> Double-click User/Group to drill down</div>
             <div class="toolbar-actions">
                 <button id="btn-fit" class="tb-btn" title="Fit graph"><i class="fas fa-expand-arrows-alt"></i></button>
@@ -100,6 +116,7 @@
                 <button id="btn-refresh" class="tb-btn tb-btn-refresh" title="Reload from Microsoft Graph (get latest data)" disabled><i class="fas fa-arrows-rotate"></i></button>
                 <button id="btn-deep-refresh" class="tb-btn tb-btn-deep-refresh" title="Deep refresh: 3x reload with short pauses" disabled><i class="fas fa-layer-group"></i></button>
                 <button id="btn-export-json" class="tb-btn" title="Export current graph as JSON"><i class="fas fa-file-export"></i></button>
+                <button id="btn-export-view-json" class="tb-btn" title="Export current filtered graph view"><i class="fas fa-filter"></i></button>
             </div>
         </div>
 
@@ -202,6 +219,9 @@
                         </svg>
                         Sign in with Microsoft
                     </a>
+                    <button id="auth-start-tutorial" class="btn-auth-tutorial" type="button">
+                        <i class="fas fa-route"></i> Start tutorial without sign-in
+                    </button>
                     <ul class="auth-bullets">
                         <li>No write operations performed</li>
                         <li>Tenant data remains in your session context</li>

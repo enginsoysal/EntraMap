@@ -11,6 +11,7 @@ PERFORMANCE OPTIMIZATIONS:
 from typing import Tuple, List, Dict
 from services.graph_service import GraphService
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from engines.group_impact_engine import GroupImpactEngine
 
 
 class GroupMapEngine:
@@ -73,6 +74,142 @@ class GroupMapEngine:
     def _clean(obj: Dict) -> Dict:
         """Remove OData metadata keys"""
         return {k: v for k, v in obj.items() if not k.startswith("@")}
+
+    @staticmethod
+    def _domain_node_type(domain_key: str) -> str:
+        if domain_key == "conditional_access":
+            return "ca_policy"
+        if domain_key == "group_nesting":
+            return "group"
+        return "app"
+
+    @staticmethod
+    def _domain_edge_label(domain_key: str, finding: Dict) -> str:
+        impact = str(finding.get("impact", "")).strip().replace("_", " ")
+        if impact:
+            return impact
+
+        label_by_domain = {
+            "conditional_access": "policy scope",
+            "intune_apps": "assignment",
+            "intune_device_configurations": "assignment",
+            "intune_settings_catalog": "assignment",
+            "intune_admin_templates": "assignment",
+            "intune_compliance": "assignment",
+            "intune_app_protection": "assignment",
+            "intune_app_configuration": "assignment",
+            "intune_scripts_bundle": "assignment",
+            "intune_enrollment_bundle": "assignment",
+            "cloud_pc_bundle": "assignment",
+            "enterprise_apps": "access",
+            "iam_roles": "role assignment",
+            "pim_roles": "pim assignment",
+            "administrative_units": "au scope",
+            "group_nesting": "group relationship",
+            "group_licensing": "license linkage",
+            "entitlement_management": "entitlement linkage",
+            "m365_workloads": "workload linkage",
+            "exchange_workloads": "workload linkage",
+        }
+        return label_by_domain.get(domain_key, "linked")
+
+    @staticmethod
+    def build_impact_graph(group_id: str, token: str) -> Tuple[List[Dict], List[Dict], Dict]:
+        """
+        Build a group impact-oriented graph from GroupImpactEngine findings.
+        Returns: (nodes, edges, error_dict or None)
+        """
+        impact_result, error = GroupImpactEngine.build(group_id, token)
+        if error:
+            return None, None, error
+
+        group = impact_result.get("group", {}) or {}
+        group_node_id = group.get("id", group_id)
+        nodes, edges = [], []
+        node_ids = set()
+        edge_ids = set()
+
+        def add_node(node: Dict) -> None:
+            node_id = node.get("id")
+            if not node_id or node_id in node_ids:
+                return
+            node_ids.add(node_id)
+            nodes.append(node)
+
+        def add_edge(edge: Dict) -> None:
+            eid = f"{edge.get('source')}::{edge.get('target')}::{edge.get('label', 'linked')}"
+            if eid in edge_ids:
+                return
+            edge_ids.add(eid)
+            edges.append(edge)
+
+        add_node(
+            {
+                "id": group_node_id,
+                "label": group.get("displayName", "Group"),
+                "type": "group",
+                "data": {
+                    **GroupMapEngine._clean(group),
+                    "impactRoot": 1,
+                },
+            }
+        )
+
+        domains = impact_result.get("domains", []) if isinstance(impact_result.get("domains"), list) else []
+        generated_index = 0
+
+        for domain in domains:
+            domain_key = domain.get("key", "")
+            domain_label = domain.get("label", domain_key or "Impact domain")
+            findings = domain.get("findings", []) if isinstance(domain.get("findings"), list) else []
+            node_type = GroupMapEngine._domain_node_type(domain_key)
+
+            for finding in findings:
+                resource_id = str(finding.get("id", "")).strip()
+                if not resource_id:
+                    generated_index += 1
+                    resource_id = f"impact::{domain_key}::{generated_index}"
+
+                resource_name = finding.get("name") or domain_label
+                severity = finding.get("severity", "warning")
+                edge_label = GroupMapEngine._domain_edge_label(domain_key, finding)
+                scope_kind = ""
+                if str(finding.get("impact", "")) == "included_scope":
+                    scope_kind = "include"
+                elif str(finding.get("impact", "")) == "excluded_scope":
+                    scope_kind = "exclude"
+
+                add_node(
+                    {
+                        "id": resource_id,
+                        "label": resource_name,
+                        "type": node_type,
+                        "data": {
+                            "id": resource_id,
+                            "displayName": resource_name,
+                            "impactNode": 1,
+                            "impactDomain": domain_label,
+                            "impactDomainKey": domain_key,
+                            "impactSeverity": severity,
+                            "impactType": finding.get("impact", ""),
+                            "type": node_type,
+                        },
+                    }
+                )
+
+                add_edge(
+                    {
+                        "source": group_node_id,
+                        "target": resource_id,
+                        "label": edge_label,
+                        "scopeKind": scope_kind,
+                        "impactEdge": 1,
+                        "impactDomainKey": domain_key,
+                        "impactSeverity": severity,
+                    }
+                )
+
+        return nodes, edges, None
 
     @staticmethod
     def build(group_id: str, token: str) -> Tuple[List[Dict], List[Dict], Dict]:

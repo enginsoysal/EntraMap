@@ -17,6 +17,8 @@ class GroupImpactEngine:
 
     MAX_CA_ITEMS = 400
     MAX_INTUNE_APPS = 1200
+    MAX_INTUNE_POLICIES = 1200
+    MAX_INTUNE_ASSIGNMENTS = 100
     MAX_ASSIGNMENTS_PER_APP = 100
     MAX_TEAMS_CHANNELS = 200
     MAX_SITE_DRIVES = 200
@@ -79,6 +81,133 @@ class GroupImpactEngine:
         if data and "error" in data:
             return False, data
         return True, None
+
+    @staticmethod
+    def _assignment_target_matches_group(target: Dict, group_id: str) -> bool:
+        if not isinstance(target, dict):
+            return False
+
+        direct_ids = [
+            target.get("groupId"),
+            target.get("entraObjectId"),
+            target.get("sourceId"),
+            target.get("sourceGroupId"),
+        ]
+        if any(item == group_id for item in direct_ids if item):
+            return True
+
+        for key in ["groupIds", "includedGroupIds", "excludedGroupIds"]:
+            value = target.get(key)
+            if isinstance(value, list) and group_id in value:
+                return True
+
+        return False
+
+    @staticmethod
+    def _collect_group_assignment_hits(assignments: List[Dict], group_id: str) -> List[Dict]:
+        hits = []
+        for assignment in assignments:
+            target = assignment.get("target", {})
+            if not GroupImpactEngine._assignment_target_matches_group(target, group_id):
+                continue
+
+            target_type = str(target.get("@odata.type", "")).lower()
+            impact = "excluded_scope" if "exclusion" in target_type else "included_scope"
+            hits.append(
+                {
+                    "id": assignment.get("id", ""),
+                    "impact": impact,
+                    "severity": "warning" if impact == "excluded_scope" else "blocker",
+                    "targetType": target_type,
+                }
+            )
+        return hits
+
+    @staticmethod
+    def _collect_assignment_domain_impact(
+        group_id: str,
+        token: str,
+        *,
+        key: str,
+        label: str,
+        list_endpoint: str,
+        list_select: str,
+        assignment_endpoint_template: str,
+        name_fallback: str,
+        name_fields: Tuple[str, ...] = ("displayName", "name", "title"),
+        probe_endpoint: str = "",
+        base_url: str = "https://graph.microsoft.com/v1.0",
+        max_items: int = 400,
+        max_assignments: int = 100,
+    ) -> Dict:
+        probe_url = probe_endpoint or f"{base_url}{list_endpoint}?$select=id&$top=1"
+        ok, err = GroupImpactEngine._probe(probe_url, token)
+        if not ok:
+            return {
+                "key": key,
+                "label": label,
+                "status": "no_permission" if GroupImpactEngine._is_permission_error(err) else "error",
+                "count": 0,
+                "findings": [],
+                "details": err.get("message", f"Unable to read {label.lower()} assignments."),
+            }
+
+        items = GraphService.get_all(
+            f"{base_url}{list_endpoint}?$select={list_select}&$top=100",
+            token,
+            max_items=max_items,
+        )
+
+        findings = []
+
+        def collect_assignments(item: Dict) -> List[Dict]:
+            item_id = item.get("id")
+            if not item_id:
+                return []
+
+            assignments = GraphService.get_all(
+                f"{base_url}{assignment_endpoint_template.format(id=item_id)}?$top=100",
+                token,
+                max_items=max_assignments,
+            )
+
+            item_name = ""
+            for field in name_fields:
+                value = item.get(field)
+                if value:
+                    item_name = value
+                    break
+            if not item_name:
+                item_name = name_fallback
+
+            hits = []
+            for hit in GroupImpactEngine._collect_group_assignment_hits(assignments, group_id):
+                hits.append(
+                    {
+                        "id": hit.get("id", ""),
+                        "name": item_name,
+                        "impact": hit.get("impact", "included_scope"),
+                        "severity": hit.get("severity", "blocker"),
+                        "resourceId": item_id,
+                    }
+                )
+            return hits
+
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            futures = [executor.submit(collect_assignments, item) for item in items if item.get("id")]
+            for future in as_completed(futures):
+                try:
+                    findings.extend(future.result())
+                except Exception:
+                    pass
+
+        return {
+            "key": key,
+            "label": label,
+            "status": "ok",
+            "count": len(findings),
+            "findings": findings,
+        }
 
     @staticmethod
     def _collect_ca_impact(group_id: str, token: str) -> Dict:
@@ -271,6 +400,293 @@ class GroupImpactEngine:
             "count": len(findings),
             "findings": findings,
         }
+
+    @staticmethod
+    def _collect_intune_device_configuration_impact(group_id: str, token: str, base_url: str) -> Dict:
+        return GroupImpactEngine._collect_assignment_domain_impact(
+            group_id,
+            token,
+            key="intune_device_configurations",
+            label="Intune Device Configurations",
+            list_endpoint="/deviceManagement/deviceConfigurations",
+            list_select="id,displayName,description,lastModifiedDateTime",
+            assignment_endpoint_template="/deviceManagement/deviceConfigurations/{id}/assignments",
+            name_fallback="Device configuration",
+            base_url=base_url,
+            max_items=GroupImpactEngine.MAX_INTUNE_POLICIES,
+            max_assignments=GroupImpactEngine.MAX_INTUNE_ASSIGNMENTS,
+        )
+
+    @staticmethod
+    def _collect_intune_settings_catalog_impact(group_id: str, token: str, base_url: str) -> Dict:
+        return GroupImpactEngine._collect_assignment_domain_impact(
+            group_id,
+            token,
+            key="intune_settings_catalog",
+            label="Settings Catalog Policies",
+            list_endpoint="/deviceManagement/configurationPolicies",
+            list_select="id,name,description,lastModifiedDateTime",
+            assignment_endpoint_template="/deviceManagement/configurationPolicies/{id}/assignments",
+            name_fallback="Settings catalog policy",
+            base_url=base_url,
+            max_items=GroupImpactEngine.MAX_INTUNE_POLICIES,
+            max_assignments=GroupImpactEngine.MAX_INTUNE_ASSIGNMENTS,
+        )
+
+    @staticmethod
+    def _collect_intune_admin_template_impact(group_id: str, token: str, base_url: str) -> Dict:
+        return GroupImpactEngine._collect_assignment_domain_impact(
+            group_id,
+            token,
+            key="intune_admin_templates",
+            label="Administrative Templates",
+            list_endpoint="/deviceManagement/groupPolicyConfigurations",
+            list_select="id,displayName,description,lastModifiedDateTime",
+            assignment_endpoint_template="/deviceManagement/groupPolicyConfigurations/{id}/assignments",
+            name_fallback="Administrative template policy",
+            base_url=base_url,
+            max_items=GroupImpactEngine.MAX_INTUNE_POLICIES,
+            max_assignments=GroupImpactEngine.MAX_INTUNE_ASSIGNMENTS,
+        )
+
+    @staticmethod
+    def _collect_intune_compliance_impact(group_id: str, token: str, base_url: str) -> Dict:
+        return GroupImpactEngine._collect_assignment_domain_impact(
+            group_id,
+            token,
+            key="intune_compliance",
+            label="Compliance Policies",
+            list_endpoint="/deviceManagement/deviceCompliancePolicies",
+            list_select="id,displayName,description,lastModifiedDateTime",
+            assignment_endpoint_template="/deviceManagement/deviceCompliancePolicies/{id}/assignments",
+            name_fallback="Compliance policy",
+            base_url=base_url,
+            max_items=GroupImpactEngine.MAX_INTUNE_POLICIES,
+            max_assignments=GroupImpactEngine.MAX_INTUNE_ASSIGNMENTS,
+        )
+
+    @staticmethod
+    def _collect_intune_app_protection_impact(group_id: str, token: str, base_url: str) -> Dict:
+        return GroupImpactEngine._collect_assignment_domain_impact(
+            group_id,
+            token,
+            key="intune_app_protection",
+            label="App Protection Policies",
+            list_endpoint="/deviceAppManagement/managedAppPolicies",
+            list_select="id,displayName,description,lastModifiedDateTime",
+            assignment_endpoint_template="/deviceAppManagement/managedAppPolicies/{id}/assignments",
+            name_fallback="App protection policy",
+            base_url=base_url,
+            max_items=GroupImpactEngine.MAX_INTUNE_POLICIES,
+            max_assignments=GroupImpactEngine.MAX_INTUNE_ASSIGNMENTS,
+        )
+
+    @staticmethod
+    def _collect_intune_app_configuration_impact(group_id: str, token: str, base_url: str) -> Dict:
+        return GroupImpactEngine._collect_assignment_domain_impact(
+            group_id,
+            token,
+            key="intune_app_configuration",
+            label="App Configuration Policies",
+            list_endpoint="/deviceAppManagement/targetedManagedAppConfigurations",
+            list_select="id,displayName,description,lastModifiedDateTime",
+            assignment_endpoint_template="/deviceAppManagement/targetedManagedAppConfigurations/{id}/assignments",
+            name_fallback="App configuration policy",
+            base_url=base_url,
+            max_items=GroupImpactEngine.MAX_INTUNE_POLICIES,
+            max_assignments=GroupImpactEngine.MAX_INTUNE_ASSIGNMENTS,
+        )
+
+    @staticmethod
+    def _collect_intune_script_impact(group_id: str, token: str, base_url: str) -> Dict:
+        script_domain = GroupImpactEngine._collect_assignment_domain_impact(
+            group_id,
+            token,
+            key="intune_scripts",
+            label="Platform Scripts",
+            list_endpoint="/deviceManagement/deviceManagementScripts",
+            list_select="id,displayName,description,lastModifiedDateTime",
+            assignment_endpoint_template="/deviceManagement/deviceManagementScripts/{id}/assignments",
+            name_fallback="Platform script",
+            base_url=base_url,
+            max_items=GroupImpactEngine.MAX_INTUNE_POLICIES,
+            max_assignments=GroupImpactEngine.MAX_INTUNE_ASSIGNMENTS,
+        )
+
+        remediation_domain = GroupImpactEngine._collect_assignment_domain_impact(
+            group_id,
+            token,
+            key="intune_proactive_remediations",
+            label="Proactive Remediation Scripts",
+            list_endpoint="/deviceManagement/deviceHealthScripts",
+            list_select="id,displayName,description,lastModifiedDateTime",
+            assignment_endpoint_template="/deviceManagement/deviceHealthScripts/{id}/assignments",
+            name_fallback="Proactive remediation script",
+            base_url=base_url,
+            max_items=GroupImpactEngine.MAX_INTUNE_POLICIES,
+            max_assignments=GroupImpactEngine.MAX_INTUNE_ASSIGNMENTS,
+        )
+
+        if script_domain.get("status") == "ok" and remediation_domain.get("status") == "ok":
+            return {
+                "key": "intune_scripts_bundle",
+                "label": "Scripts and Remediations",
+                "status": "ok",
+                "count": script_domain.get("count", 0) + remediation_domain.get("count", 0),
+                "findings": script_domain.get("findings", []) + remediation_domain.get("findings", []),
+            }
+
+        details = script_domain.get("details") or remediation_domain.get("details") or ""
+        status = "ok"
+        if script_domain.get("status") != "ok" and remediation_domain.get("status") != "ok":
+            status = script_domain.get("status") if script_domain.get("status") == remediation_domain.get("status") else "error"
+        elif script_domain.get("status") != "ok" or remediation_domain.get("status") != "ok":
+            status = "error"
+
+        return {
+            "key": "intune_scripts_bundle",
+            "label": "Scripts and Remediations",
+            "status": status,
+            "count": script_domain.get("count", 0) + remediation_domain.get("count", 0),
+            "findings": script_domain.get("findings", []) + remediation_domain.get("findings", []),
+            "details": details,
+        }
+
+    @staticmethod
+    def _collect_autopilot_enrollment_impact(group_id: str, token: str, base_url: str) -> Dict:
+        autopilot_domain = GroupImpactEngine._collect_assignment_domain_impact(
+            group_id,
+            token,
+            key="intune_autopilot_profiles",
+            label="Autopilot Deployment Profiles",
+            list_endpoint="/deviceManagement/windowsAutopilotDeploymentProfiles",
+            list_select="id,displayName,description,lastModifiedDateTime",
+            assignment_endpoint_template="/deviceManagement/windowsAutopilotDeploymentProfiles/{id}/assignments",
+            name_fallback="Autopilot deployment profile",
+            base_url=base_url,
+            max_items=GroupImpactEngine.MAX_INTUNE_POLICIES,
+            max_assignments=GroupImpactEngine.MAX_INTUNE_ASSIGNMENTS,
+        )
+
+        esp_domain = GroupImpactEngine._collect_assignment_domain_impact(
+            group_id,
+            token,
+            key="intune_enrollment_status_page",
+            label="Enrollment Status Page Profiles",
+            list_endpoint="/deviceManagement/deviceEnrollmentConfigurations",
+            list_select="id,displayName,description,priority,lastModifiedDateTime",
+            assignment_endpoint_template="/deviceManagement/deviceEnrollmentConfigurations/{id}/assignments",
+            name_fallback="Enrollment status page profile",
+            base_url=base_url,
+            max_items=GroupImpactEngine.MAX_INTUNE_POLICIES,
+            max_assignments=GroupImpactEngine.MAX_INTUNE_ASSIGNMENTS,
+        )
+
+        if autopilot_domain.get("status") == "ok" and esp_domain.get("status") == "ok":
+            return {
+                "key": "intune_enrollment_bundle",
+                "label": "Autopilot and Enrollment Profiles",
+                "status": "ok",
+                "count": autopilot_domain.get("count", 0) + esp_domain.get("count", 0),
+                "findings": autopilot_domain.get("findings", []) + esp_domain.get("findings", []),
+            }
+
+        details = autopilot_domain.get("details") or esp_domain.get("details") or ""
+        status = "ok"
+        if autopilot_domain.get("status") != "ok" and esp_domain.get("status") != "ok":
+            status = autopilot_domain.get("status") if autopilot_domain.get("status") == esp_domain.get("status") else "error"
+        elif autopilot_domain.get("status") != "ok" or esp_domain.get("status") != "ok":
+            status = "error"
+
+        return {
+            "key": "intune_enrollment_bundle",
+            "label": "Autopilot and Enrollment Profiles",
+            "status": status,
+            "count": autopilot_domain.get("count", 0) + esp_domain.get("count", 0),
+            "findings": autopilot_domain.get("findings", []) + esp_domain.get("findings", []),
+            "details": details,
+        }
+
+    @staticmethod
+    def _collect_cloud_pc_impact(group_id: str, token: str, base_url: str) -> Dict:
+        provisioning_domain = GroupImpactEngine._collect_assignment_domain_impact(
+            group_id,
+            token,
+            key="cloud_pc_provisioning",
+            label="Windows 365 Cloud PC Provisioning Policies",
+            list_endpoint="/deviceManagement/virtualEndpoint/provisioningPolicies",
+            list_select="id,displayName,description,lastModifiedDateTime",
+            assignment_endpoint_template="/deviceManagement/virtualEndpoint/provisioningPolicies/{id}/assignments",
+            name_fallback="Cloud PC provisioning policy",
+            base_url=base_url,
+            max_items=GroupImpactEngine.MAX_INTUNE_POLICIES,
+            max_assignments=GroupImpactEngine.MAX_INTUNE_ASSIGNMENTS,
+        )
+
+        user_settings_domain = GroupImpactEngine._collect_assignment_domain_impact(
+            group_id,
+            token,
+            key="cloud_pc_user_settings",
+            label="Windows 365 Cloud PC User Settings",
+            list_endpoint="/deviceManagement/virtualEndpoint/userSettings",
+            list_select="id,displayName,lastModifiedDateTime",
+            assignment_endpoint_template="/deviceManagement/virtualEndpoint/userSettings/{id}/assignments",
+            name_fallback="Cloud PC user setting",
+            base_url=base_url,
+            max_items=GroupImpactEngine.MAX_INTUNE_POLICIES,
+            max_assignments=GroupImpactEngine.MAX_INTUNE_ASSIGNMENTS,
+        )
+
+        if provisioning_domain.get("status") == "ok" and user_settings_domain.get("status") == "ok":
+            return {
+                "key": "cloud_pc_bundle",
+                "label": "Windows 365 Cloud PC",
+                "status": "ok",
+                "count": provisioning_domain.get("count", 0) + user_settings_domain.get("count", 0),
+                "findings": provisioning_domain.get("findings", []) + user_settings_domain.get("findings", []),
+            }
+
+        details = provisioning_domain.get("details") or user_settings_domain.get("details") or ""
+        status = "ok"
+        if provisioning_domain.get("status") != "ok" and user_settings_domain.get("status") != "ok":
+            status = provisioning_domain.get("status") if provisioning_domain.get("status") == user_settings_domain.get("status") else "error"
+        elif provisioning_domain.get("status") != "ok" or user_settings_domain.get("status") != "ok":
+            status = "error"
+
+        return {
+            "key": "cloud_pc_bundle",
+            "label": "Windows 365 Cloud PC",
+            "status": status,
+            "count": provisioning_domain.get("count", 0) + user_settings_domain.get("count", 0),
+            "findings": provisioning_domain.get("findings", []) + user_settings_domain.get("findings", []),
+            "details": details,
+        }
+
+    @staticmethod
+    def _collect_intune_policy_domains(group_id: str, token: str) -> List[Dict]:
+        collectors = [
+            GroupImpactEngine._collect_intune_device_configuration_impact,
+            GroupImpactEngine._collect_intune_settings_catalog_impact,
+            GroupImpactEngine._collect_intune_admin_template_impact,
+            GroupImpactEngine._collect_intune_compliance_impact,
+            GroupImpactEngine._collect_intune_app_protection_impact,
+            GroupImpactEngine._collect_intune_app_configuration_impact,
+            GroupImpactEngine._collect_intune_script_impact,
+            GroupImpactEngine._collect_autopilot_enrollment_impact,
+            GroupImpactEngine._collect_cloud_pc_impact,
+        ]
+
+        domains = [collector(group_id, token, "https://graph.microsoft.com/v1.0") for collector in collectors]
+
+        # Fallback to beta when v1.0 has no matches and no read errors for the domain.
+        for idx, domain in enumerate(domains):
+            if domain.get("status") != "ok" or domain.get("count", 0) > 0:
+                continue
+            beta_domain = collectors[idx](group_id, token, "https://graph.microsoft.com/beta")
+            if beta_domain.get("status") == "ok" and beta_domain.get("count", 0) > 0:
+                domains[idx] = beta_domain
+
+        return domains
 
     @staticmethod
     def _collect_iam_impact(group_id: str, token: str) -> Dict:
@@ -873,6 +1289,7 @@ class GroupImpactEngine:
             if beta_intune.get("status") == "ok" and beta_intune.get("count", 0) > 0:
                 intune_impact = beta_intune
         domains.insert(1, intune_impact)
+        domains[2:2] = GroupImpactEngine._collect_intune_policy_domains(group_id, token)
 
         findings = [f for domain in domains for f in domain.get("findings", [])]
         blockers = sum(1 for f in findings if f.get("severity") == "blocker")
@@ -886,6 +1303,15 @@ class GroupImpactEngine:
         domain_modes = {
             "conditional_access": "enumerated",
             "intune_apps": "enumerated",
+            "intune_device_configurations": "enumerated",
+            "intune_settings_catalog": "enumerated",
+            "intune_admin_templates": "enumerated",
+            "intune_compliance": "enumerated",
+            "intune_app_protection": "enumerated",
+            "intune_app_configuration": "enumerated",
+            "intune_scripts_bundle": "enumerated",
+            "intune_enrollment_bundle": "enumerated",
+            "cloud_pc_bundle": "enumerated",
             "enterprise_apps": "enumerated",
             "iam_roles": "enumerated",
             "pim_roles": "enumerated",
@@ -927,6 +1353,8 @@ class GroupImpactEngine:
                     "scanLimits": {
                         "maxConditionalAccessPolicies": GroupImpactEngine.MAX_CA_ITEMS,
                         "maxIntuneApps": GroupImpactEngine.MAX_INTUNE_APPS,
+                        "maxIntunePolicies": GroupImpactEngine.MAX_INTUNE_POLICIES,
+                        "maxIntuneAssignments": GroupImpactEngine.MAX_INTUNE_ASSIGNMENTS,
                         "maxAssignmentsPerApp": GroupImpactEngine.MAX_ASSIGNMENTS_PER_APP,
                         "maxTeamChannels": GroupImpactEngine.MAX_TEAMS_CHANNELS,
                         "maxSiteDrives": GroupImpactEngine.MAX_SITE_DRIVES,
