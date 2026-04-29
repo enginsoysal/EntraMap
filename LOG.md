@@ -1,5 +1,13 @@
 # Change Log
 
+## 0.5.2 - 2026-04-29
+
+- Bumped application version to 0.5.2
+- Added a signed-out tutorial warning banner at the top of the left panel explaining tutorial limitations when not signed in
+- Added an inline "Stop tutorial" action in that banner
+- Updated signed-out tutorial stop behavior so user-initiated stop returns to the homepage start state
+- Updated release documentation in README.md, FILES.md, and LOG.md for version consistency
+
 ## 0.5.1 - 2026-04-29
 
 - Bumped application version to 0.5.1

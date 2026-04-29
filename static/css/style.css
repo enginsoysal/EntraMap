@@ -340,6 +340,39 @@ body {
     background: rgba(239,68,68,.12);
 }
 
+.tutorial-signedout-banner {
+    margin: 10px 14px 0;
+    border: 1px solid rgba(251,191,36,.4);
+    background: rgba(120,53,15,.22);
+    color: #fde68a;
+    border-radius: 9px;
+    padding: 8px 9px;
+    font-size: 0.73rem;
+    line-height: 1.35;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.tutorial-stop-inline-btn {
+    border: 1px solid rgba(251,191,36,.45);
+    background: rgba(146,64,14,.35);
+    color: #fde68a;
+    border-radius: 7px;
+    padding: 4px 8px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.35px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.tutorial-stop-inline-btn:hover {
+    background: rgba(180,83,9,.42);
+}
+
 /* ---- Search section -------------------------------------- */
 #search-section {
     padding: 14px 14px 10px;

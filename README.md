@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Version 0.5.1
+Version 0.5.2
 
 EntraMap is a Flask web application that signs users in with Microsoft Entra ID and visualizes tenant relationships as an interactive graph. It helps you explore users, devices, groups, applications, and Conditional Access policies from a single screen.
 
@@ -44,11 +44,12 @@ EntraMap is a Flask web application that signs users in with Microsoft Entra ID 
 - In-app changelog rendered directly from `LOG.md`
 - Idle session timeout warning with 60-second countdown before auto sign-out
 
-## Latest Changes (0.5.1)
+## Latest Changes (0.5.2)
 
-- Bumped application version to 0.5.1
-- Removed `opencensus-ext-flask` from requirements to resolve Flask 3.x dependency conflicts during environment setup
-- Updated telemetry fallback so instrumentation-key mode keeps OpenCensus logging when Flask middleware is unavailable
+- Bumped application version to 0.5.2
+- Added a signed-out tutorial warning banner at the top of the left panel explaining tutorial limitations when not signed in
+- Added an inline "Stop tutorial" action in that banner
+- Updated signed-out tutorial stop behavior so user-initiated stop returns to the homepage start state
 - Updated release documentation in README.md, FILES.md, and LOG.md for version consistency
 
 ## 0.4.11 Focus

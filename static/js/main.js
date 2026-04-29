@@ -651,6 +651,13 @@ function updateTutorialLauncherBadge() {
     badge.classList.remove("is-active");
 }
 
+function updateSignedOutTutorialBanner() {
+    const banner = getElement("tutorial-signedout-banner");
+    if (!banner) return;
+    const show = !APP_CONTEXT.signedIn && tutorialState.active;
+    banner.classList.toggle("d-none", !show);
+}
+
 function syncTutorialProgressFromState() {
     if (!tutorialState.active) return;
     const step = getCurrentTutorialStep();
@@ -755,7 +762,7 @@ function ensureTutorialCoach() {
     });
 
     skipButton?.addEventListener("click", () => {
-        stopTutorial("Tutorial stopped.");
+        stopTutorial("Tutorial stopped.", { fromUserStop: true });
     });
 
     findButton?.addEventListener("click", () => {
@@ -1062,7 +1069,8 @@ function completeTutorialPhase() {
     if (picker) picker.classList.remove("d-none");
 }
 
-function stopTutorial(message) {
+function stopTutorial(message, options = {}) {
+    const fromUserStop = !!options.fromUserStop;
     tutorialState.active = false;
     tutorialState.phaseKey = "";
     tutorialState.stepIndex = 0;
@@ -1071,6 +1079,7 @@ function stopTutorial(message) {
     clearTutorialBindings();
     clearTutorialHighlight();
     updateTutorialLauncherBadge();
+    updateSignedOutTutorialBanner();
 
     if (tutorialState.coachEl) {
         tutorialState.coachEl.classList.add("d-none");
@@ -1078,6 +1087,10 @@ function stopTutorial(message) {
 
     if (message) {
         showToast(message, "info");
+    }
+
+    if (fromUserStop && !APP_CONTEXT.signedIn) {
+        window.location.href = "/";
     }
 }
 
@@ -1092,6 +1105,7 @@ function startTutorialPhase(phaseKey) {
     tutorialState.phaseKey = phaseKey;
     tutorialState.stepIndex = 0;
     updateTutorialLauncherBadge();
+    updateSignedOutTutorialBanner();
 
     const picker = getElement("tutorial-level-picker");
     if (picker) picker.classList.add("d-none");
@@ -4829,6 +4843,7 @@ function bindTutorialUi() {
 
     const launchButton = getElement("btn-start-tutorial");
     const picker = getElement("tutorial-level-picker");
+    const inlineStopButton = getElement("tutorial-stop-inline");
     if (!launchButton || !picker) return;
 
     launchButton.innerHTML = '<i class="fas fa-route"></i> Start Interactive Tutorial';
@@ -4847,7 +4862,13 @@ function bindTutorialUi() {
     };
 
     updateTutorialLauncherBadge();
+    updateSignedOutTutorialBanner();
     refreshPickerLabels();
+
+    inlineStopButton?.addEventListener("click", () => {
+        if (!tutorialState.active) return;
+        stopTutorial("Tutorial stopped.", { fromUserStop: true });
+    });
 
     launchButton.addEventListener("click", () => {
         const isHidden = picker.classList.contains("d-none");
