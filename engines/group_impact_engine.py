@@ -97,6 +97,19 @@ class GroupImpactEngine:
         return "error"
 
     @staticmethod
+    def _merge_domain_status(*statuses: str) -> str:
+        non_ok = [str(s or "") for s in statuses if str(s or "") != "ok"]
+        if not non_ok:
+            return "ok"
+        if all(s == non_ok[0] for s in non_ok):
+            return non_ok[0]
+        if "no_permission" in non_ok:
+            return "no_permission"
+        if "not_licensed" in non_ok:
+            return "not_licensed"
+        return "error"
+
+    @staticmethod
     def _probe(endpoint: str, token: str) -> Tuple[bool, Dict]:
         """Return (is_ok, error_dict_or_none)."""
         data = GraphService.get(endpoint, token)
@@ -559,11 +572,7 @@ class GroupImpactEngine:
             }
 
         details = script_domain.get("details") or remediation_domain.get("details") or ""
-        status = "ok"
-        if script_domain.get("status") != "ok" and remediation_domain.get("status") != "ok":
-            status = script_domain.get("status") if script_domain.get("status") == remediation_domain.get("status") else "error"
-        elif script_domain.get("status") != "ok" or remediation_domain.get("status") != "ok":
-            status = "error"
+        status = GroupImpactEngine._merge_domain_status(script_domain.get("status"), remediation_domain.get("status"))
 
         return {
             "key": "intune_scripts_bundle",
@@ -614,11 +623,7 @@ class GroupImpactEngine:
             }
 
         details = autopilot_domain.get("details") or esp_domain.get("details") or ""
-        status = "ok"
-        if autopilot_domain.get("status") != "ok" and esp_domain.get("status") != "ok":
-            status = autopilot_domain.get("status") if autopilot_domain.get("status") == esp_domain.get("status") else "error"
-        elif autopilot_domain.get("status") != "ok" or esp_domain.get("status") != "ok":
-            status = "error"
+        status = GroupImpactEngine._merge_domain_status(autopilot_domain.get("status"), esp_domain.get("status"))
 
         return {
             "key": "intune_enrollment_bundle",
@@ -669,11 +674,7 @@ class GroupImpactEngine:
             }
 
         details = provisioning_domain.get("details") or user_settings_domain.get("details") or ""
-        status = "ok"
-        if provisioning_domain.get("status") != "ok" and user_settings_domain.get("status") != "ok":
-            status = provisioning_domain.get("status") if provisioning_domain.get("status") == user_settings_domain.get("status") else "error"
-        elif provisioning_domain.get("status") != "ok" or user_settings_domain.get("status") != "ok":
-            status = "error"
+        status = GroupImpactEngine._merge_domain_status(provisioning_domain.get("status"), user_settings_domain.get("status"))
 
         return {
             "key": "cloud_pc_bundle",
