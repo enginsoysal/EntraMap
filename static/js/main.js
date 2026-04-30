@@ -2998,6 +2998,9 @@ function formatImpactLabel(value) {
 
 function getPermissionHintForDomain(domain) {
     const key = String(domain?.key || "");
+    if (String(domain?.status || "") === "not_licensed") {
+        return "Feature is unavailable in this tenant (license or service plan required)";
+    }
     if (key === "intune_apps") return "Needs DeviceManagementApps.Read.All consent and Intune read visibility";
     if (key === "conditional_access") return "Needs Policy.Read.All consent and a role that can read CA policies";
     if (key === "enterprise_apps") return "Needs Application.Read.All consent and directory app read visibility";
@@ -3046,6 +3049,19 @@ function getDomainAccessReason(domain) {
         } catch (_) {
             // keep original raw text
         }
+    }
+
+    const detailLower = detailText.toLowerCase();
+    if (String(domain?.status || "") === "not_licensed") {
+        if (
+            detailLower.includes("<html") ||
+            detailLower.includes("403 forbidden") ||
+            detailLower.includes("resource not found for the segment") ||
+            detailLower.includes("not found for segment")
+        ) {
+            return "Feature endpoint is unavailable in this tenant (license or service plan required)";
+        }
+        return fallback;
     }
 
     // Keep UI compact while still exposing the concrete Graph failure reason.

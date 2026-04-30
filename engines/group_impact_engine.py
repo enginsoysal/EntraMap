@@ -72,16 +72,29 @@ class GroupImpactEngine:
             return False
         code = err.get("error")
         msg = str(err.get("message", "")).lower()
-        # HTML response = service not licensed in this tenant
-        if "<html" in msg or "<title>" in msg:
-            return True
         return code in (401, 403) or any(k in msg for k in [
             "forbidden", "insufficient", "permission", "authorization",
+        ])
+
+    @staticmethod
+    def _is_not_licensed_error(err: Dict) -> bool:
+        if not err or "error" not in err:
+            return False
+        msg = str(err.get("message", "")).lower()
+        return ("<html" in msg or "<title>" in msg) or any(k in msg for k in [
             "resource not found for the segment", "not found for segment",
             "does not exist or one of its queried reference-property",
             "the feature is not available for this account",
             "tenant does not have a license",
         ])
+
+    @staticmethod
+    def _classify_access_error(err: Dict) -> str:
+        if GroupImpactEngine._is_not_licensed_error(err):
+            return "not_licensed"
+        if GroupImpactEngine._is_permission_error(err):
+            return "no_permission"
+        return "error"
 
     @staticmethod
     def _probe(endpoint: str, token: str) -> Tuple[bool, Dict]:
@@ -155,7 +168,7 @@ class GroupImpactEngine:
             return {
                 "key": key,
                 "label": label,
-                "status": "no_permission" if GroupImpactEngine._is_permission_error(err) else "error",
+                "status": GroupImpactEngine._classify_access_error(err),
                 "count": 0,
                 "findings": [],
                 "details": err.get("message", f"Unable to read {label.lower()} assignments."),
@@ -228,7 +241,7 @@ class GroupImpactEngine:
             return {
                 "key": "conditional_access",
                 "label": "Conditional Access",
-                "status": "no_permission" if GroupImpactEngine._is_permission_error(err) else "error",
+                "status": GroupImpactEngine._classify_access_error(err),
                 "count": 0,
                 "findings": [],
                 "details": err.get("message", "Unable to read Conditional Access policies."),
@@ -285,7 +298,7 @@ class GroupImpactEngine:
             return {
                 "key": "enterprise_apps",
                 "label": "Enterprise App Access",
-                "status": "no_permission" if GroupImpactEngine._is_permission_error(err) else "error",
+                "status": GroupImpactEngine._classify_access_error(err),
                 "count": 0,
                 "findings": [],
                 "details": err.get("message", "Unable to read enterprise app assignments."),
@@ -354,7 +367,7 @@ class GroupImpactEngine:
             return {
                 "key": "intune_apps",
                 "label": "Intune App Assignments",
-                "status": "no_permission" if GroupImpactEngine._is_permission_error(err) else "error",
+                "status": GroupImpactEngine._classify_access_error(err),
                 "count": 0,
                 "findings": [],
                 "details": err.get("message", "Unable to read Intune mobile apps."),
@@ -707,7 +720,7 @@ class GroupImpactEngine:
             return {
                 "key": "iam_roles",
                 "label": "Directory Role Assignments",
-                "status": "no_permission" if GroupImpactEngine._is_permission_error(err) else "error",
+                "status": GroupImpactEngine._classify_access_error(err),
                 "count": 0,
                 "findings": [],
                 "details": err.get("message", "Unable to read directory role assignments."),
@@ -770,7 +783,7 @@ class GroupImpactEngine:
             return {
                 "key": "pim_roles",
                 "label": "PIM Role Eligibility",
-                "status": "no_permission" if GroupImpactEngine._is_permission_error(err) else "error",
+                "status": GroupImpactEngine._classify_access_error(err),
                 "count": 0,
                 "findings": [],
                 "details": err.get("message", "Unable to read PIM role schedules."),
@@ -845,7 +858,7 @@ class GroupImpactEngine:
             return {
                 "key": "administrative_units",
                 "label": "Administrative Units",
-                "status": "no_permission" if GroupImpactEngine._is_permission_error(err) else "error",
+                "status": GroupImpactEngine._classify_access_error(err),
                 "count": 0,
                 "findings": [],
                 "details": err.get("message", "Unable to read administrative units."),
@@ -908,7 +921,7 @@ class GroupImpactEngine:
             return {
                 "key": "group_nesting",
                 "label": "Group Nesting",
-                "status": "no_permission" if GroupImpactEngine._is_permission_error(err) else "error",
+                "status": GroupImpactEngine._classify_access_error(err),
                 "count": 0,
                 "findings": [],
                 "details": err.get("message", "Unable to read nested group relationships."),
@@ -971,7 +984,7 @@ class GroupImpactEngine:
             return {
                 "key": "group_licensing",
                 "label": "Group-based Licensing",
-                "status": "no_permission" if GroupImpactEngine._is_permission_error(err) else "error",
+                "status": GroupImpactEngine._classify_access_error(err),
                 "count": 0,
                 "findings": [],
                 "details": err.get("message", "Unable to read group licensing."),
@@ -1019,7 +1032,7 @@ class GroupImpactEngine:
         return {
             "key": "group_licensing",
             "label": "Group-based Licensing",
-            "status": "ok" if sku_probe_ok else ("no_permission" if GroupImpactEngine._is_permission_error(sku_probe_err) else "error"),
+            "status": "ok" if sku_probe_ok else GroupImpactEngine._classify_access_error(sku_probe_err),
             "count": len(findings),
             "findings": findings,
             "details": "" if sku_probe_ok else (sku_probe_err or {}).get("message", "Unable to resolve SKU names."),
@@ -1035,7 +1048,7 @@ class GroupImpactEngine:
             return {
                 "key": "entitlement_management",
                 "label": "Entitlement Management",
-                "status": "no_permission" if GroupImpactEngine._is_permission_error(err) else "error",
+                "status": GroupImpactEngine._classify_access_error(err),
                 "count": 0,
                 "findings": [],
                 "details": err.get("message", "Unable to read Entitlement Management policies."),
@@ -1078,7 +1091,7 @@ class GroupImpactEngine:
             return {
                 "key": "m365_workloads",
                 "label": "M365 Workloads",
-                "status": "no_permission" if GroupImpactEngine._is_permission_error(err) else "error",
+                "status": GroupImpactEngine._classify_access_error(err),
                 "count": 0,
                 "findings": [],
                 "details": err.get("message", "Unable to read M365 workload footprint."),
@@ -1164,7 +1177,7 @@ class GroupImpactEngine:
         details = ""
         if access_issues:
             first_issue = access_issues[0]
-            status = "no_permission" if GroupImpactEngine._is_permission_error(first_issue) else "error"
+            status = GroupImpactEngine._classify_access_error(first_issue)
             details = first_issue.get("message", "Some M365 workload endpoints could not be read.")
 
         return {
@@ -1187,7 +1200,7 @@ class GroupImpactEngine:
             return {
                 "key": "exchange_workloads",
                 "label": "Exchange Workloads",
-                "status": "no_permission" if GroupImpactEngine._is_permission_error(err) else "error",
+                "status": GroupImpactEngine._classify_access_error(err),
                 "count": 0,
                 "findings": [],
                 "details": err.get("message", "Unable to read Exchange workload footprint."),
@@ -1254,7 +1267,7 @@ class GroupImpactEngine:
         details = ""
         if access_issues:
             first_issue = access_issues[0]
-            status = "no_permission" if GroupImpactEngine._is_permission_error(first_issue) else "error"
+            status = GroupImpactEngine._classify_access_error(first_issue)
             details = first_issue.get("message", "Some Exchange workload endpoints could not be read.")
 
         return {
@@ -1382,3 +1395,4 @@ class GroupImpactEngine:
 
     def health_check(self) -> bool:
         return True
+
