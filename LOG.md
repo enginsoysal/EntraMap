@@ -1,5 +1,15 @@
 # Change Log
 
+## 0.5.3 - 2026-04-30
+
+- Bumped application version to 0.5.3
+- Added API permission check on sign-in: lightbox warning when required Graph permissions are missing or not licensed
+- Improved permission error classification: HTML 403 responses (unlicensed features like Windows 365 / Autopilot) now correctly shown as "Not licensed" instead of "Missing"
+- Simplified permission lightbox: removed Azure Portal instructions, single Disconnect & Sign out action
+- Added `/api/permission-check` endpoint probing 13 key Graph scopes
+- Synchronized SCOPES list in config.py to exact 18-permission set with admin consent
+- Updated release documentation in README.md, FILES.md, and LOG.md for version consistency
+
 ## 0.5.2 - 2026-04-29
 
 - Bumped application version to 0.5.2

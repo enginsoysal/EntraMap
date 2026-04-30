@@ -269,11 +269,15 @@
         </div>
 
         <div class="auth-pane d-none" data-auth-pane="permissions">
-            <div class="perm-intro">All permissions are delegated and read-only. Click a permission to see why it is needed.</div>
+            <div class="perm-intro">EntraMap uses the following Microsoft Graph permissions. User.Read is delegated for sign-in; the rest are app permissions used for tenant-wide read visibility. Click a permission to see why it is needed.</div>
             <div class="perm-list">
                 <div class="perm-item">
                     <button class="perm-toggle" type="button">User.Read <span class="perm-tag">required</span><i class="fas fa-chevron-down perm-chevron"></i></button>
                     <div class="perm-body">Reads the signed-in user's basic profile to establish session identity.</div>
+                </div>
+                <div class="perm-item">
+                    <button class="perm-toggle" type="button">User.Read.All <span class="perm-tag">required</span><i class="fas fa-chevron-down perm-chevron"></i></button>
+                    <div class="perm-body">Reads full user profiles tenant-wide for user lookup, pivoting, and enriched relationship details.</div>
                 </div>
                 <div class="perm-item">
                     <button class="perm-toggle" type="button">User.ReadBasic.All <span class="perm-tag">required</span><i class="fas fa-chevron-down perm-chevron"></i></button>
@@ -288,12 +292,28 @@
                     <div class="perm-body">Reads tenant devices for device graph coverage and risk context.</div>
                 </div>
                 <div class="perm-item">
+                    <button class="perm-toggle" type="button">DeviceManagementManagedDevices.Read.All <span class="perm-tag">required</span><i class="fas fa-chevron-down perm-chevron"></i></button>
+                    <div class="perm-body">Reads Intune managed device records and posture details used in impact and compliance context.</div>
+                </div>
+                <div class="perm-item">
                     <button class="perm-toggle" type="button">Application.Read.All <span class="perm-tag">required</span><i class="fas fa-chevron-down perm-chevron"></i></button>
                     <div class="perm-body">Reads enterprise apps and service principals for app relationship mapping.</div>
                 </div>
                 <div class="perm-item">
                     <button class="perm-toggle" type="button">DeviceManagementApps.Read.All <span class="perm-tag">required</span><i class="fas fa-chevron-down perm-chevron"></i></button>
                     <div class="perm-body">Reads Intune app assignments to detect group dependencies before deletion.</div>
+                </div>
+                <div class="perm-item">
+                    <button class="perm-toggle" type="button">DeviceManagementConfiguration.Read.All <span class="perm-tag">required</span><i class="fas fa-chevron-down perm-chevron"></i></button>
+                    <div class="perm-body">Reads Intune device configurations, settings catalog, administrative templates, and compliance policies.</div>
+                </div>
+                <div class="perm-item">
+                    <button class="perm-toggle" type="button">DeviceManagementServiceConfig.Read.All <span class="perm-tag">required</span><i class="fas fa-chevron-down perm-chevron"></i></button>
+                    <div class="perm-body">Reads Autopilot profiles and enrollment configurations for group-impact dependency detection.</div>
+                </div>
+                <div class="perm-item">
+                    <button class="perm-toggle" type="button">CloudPC.Read.All <span class="perm-tag">required</span><i class="fas fa-chevron-down perm-chevron"></i></button>
+                    <div class="perm-body">Reads Windows 365 Cloud PC policies and assignments to surface cloud desktop dependencies.</div>
                 </div>
                 <div class="perm-item">
                     <button class="perm-toggle" type="button">Policy.Read.All <span class="perm-tag">required</span><i class="fas fa-chevron-down perm-chevron"></i></button>
@@ -304,8 +324,8 @@
                     <div class="perm-body">Reads Entra role assignments and privileged role relationships.</div>
                 </div>
                 <div class="perm-item">
-                    <button class="perm-toggle" type="button">Organization.Read.All <span class="perm-tag">required</span><i class="fas fa-chevron-down perm-chevron"></i></button>
-                    <div class="perm-body">Reads tenant organization data and SKU metadata for license resolution.</div>
+                    <button class="perm-toggle" type="button">AdministrativeUnit.Read.All <span class="perm-tag">required</span><i class="fas fa-chevron-down perm-chevron"></i></button>
+                    <div class="perm-body">Reads administrative units and scoped memberships to detect delegated admin boundaries.</div>
                 </div>
                 <div class="perm-item">
                     <button class="perm-toggle" type="button">EntitlementManagement.Read.All <span class="perm-tag">required</span><i class="fas fa-chevron-down perm-chevron"></i></button>
@@ -318,10 +338,6 @@
                 <div class="perm-item">
                     <button class="perm-toggle" type="button">Sites.Read.All <span class="perm-tag">required</span><i class="fas fa-chevron-down perm-chevron"></i></button>
                     <div class="perm-body">Reads SharePoint site metadata to detect workload dependencies.</div>
-                </div>
-                <div class="perm-item">
-                    <button class="perm-toggle" type="button">Tasks.Read <span class="perm-tag">required</span><i class="fas fa-chevron-down perm-chevron"></i></button>
-                    <div class="perm-body">Reads Planner plans/tasks connected to group-backed workspaces.</div>
                 </div>
                 <div class="perm-item">
                     <button class="perm-toggle" type="button">Directory.Read.All <span class="perm-tag">required</span><i class="fas fa-chevron-down perm-chevron"></i></button>

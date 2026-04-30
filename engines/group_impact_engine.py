@@ -72,7 +72,16 @@ class GroupImpactEngine:
             return False
         code = err.get("error")
         msg = str(err.get("message", "")).lower()
-        return code in (401, 403) or any(k in msg for k in ["forbidden", "insufficient", "permission", "authorization"])
+        # HTML response = service not licensed in this tenant
+        if "<html" in msg or "<title>" in msg:
+            return True
+        return code in (401, 403) or any(k in msg for k in [
+            "forbidden", "insufficient", "permission", "authorization",
+            "resource not found for the segment", "not found for segment",
+            "does not exist or one of its queried reference-property",
+            "the feature is not available for this account",
+            "tenant does not have a license",
+        ])
 
     @staticmethod
     def _probe(endpoint: str, token: str) -> Tuple[bool, Dict]:

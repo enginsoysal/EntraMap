@@ -65,23 +65,27 @@ class Config:
     GRAPH_BASE = "https://graph.microsoft.com/v1.0"
     SCOPES = [
         "User.Read",
+        "User.Read.All",
         "User.ReadBasic.All",
         "Group.Read.All",
         "Device.Read.All",
+        "DeviceManagementManagedDevices.Read.All",
         "Application.Read.All",
         "DeviceManagementApps.Read.All",
+        "DeviceManagementConfiguration.Read.All",
+        "DeviceManagementServiceConfig.Read.All",
+        "CloudPC.Read.All",
         "Policy.Read.All",
         "RoleManagement.Read.Directory",
-        "Organization.Read.All",
+        "AdministrativeUnit.Read.All",
         "EntitlementManagement.Read.All",
         "Team.ReadBasic.All",
         "Sites.Read.All",
-        "Tasks.Read",
         "Directory.Read.All",
     ]
 
     # App
-    VERSION = "0.5.2"
+    VERSION = "0.5.3"
 
     @classmethod
     def validate(cls) -> Tuple[bool, str]:

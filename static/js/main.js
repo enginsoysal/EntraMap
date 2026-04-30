@@ -1692,6 +1692,16 @@ function setupMicrosoftSignInPopup() {
     });
 }
 
+function setupSwitchAccount() {
+    const links = document.querySelectorAll("a[href='/login']");
+    links.forEach(link => {
+        link.addEventListener("click", event => {
+            event.preventDefault();
+            window.location.href = "/login";
+        });
+    });
+}
+
 function setControlsDisabled(disabled) {
     document.querySelectorAll(".search-tab, #btn-fit, #btn-reset-layout, #btn-export-json, #btn-export-view-json, #insight-unmanaged, #insight-noncompliant, #insight-reset")
         .forEach(element => {
@@ -3010,8 +3020,29 @@ function getDomainAccessReason(domain) {
     if (rawDetails.startsWith("{")) {
         try {
             const parsed = JSON.parse(rawDetails);
-            const graphMessage = parsed?.error?.message;
-            if (graphMessage) detailText = String(graphMessage);
+            // Standard Graph error: { error: { code, message } }
+            const errObj = parsed?.error;
+            if (errObj && typeof errObj === "object") {
+                detailText = String(errObj.message || errObj.code || rawDetails);
+            } else if (typeof errObj === "string") {
+                // Intune-style non-standard: { error: "Forbidden", message: "{...}" }
+                const innerMsg = parsed?.message;
+                if (innerMsg) {
+                    // message may itself be a JSON string
+                    if (String(innerMsg).trim().startsWith("{")) {
+                        try {
+                            const inner = JSON.parse(innerMsg);
+                            detailText = String(inner?.Message || inner?.message || innerMsg);
+                        } catch (_) {
+                            detailText = String(innerMsg);
+                        }
+                    } else {
+                        detailText = String(innerMsg);
+                    }
+                } else {
+                    detailText = errObj;
+                }
+            }
         } catch (_) {
             // keep original raw text
         }
@@ -4923,12 +4954,89 @@ function runHealthCheck() {
         });
 }
 
+// ── Permission Check Lightbox ────────────────────────────────────────────────
+
+function runPermissionCheck() {
+    if (!APP_CONTEXT.signedIn) return;
+
+    fetch("/api/permission-check")
+        .then(r => r.json())
+        .then(data => {
+            const existing = document.getElementById("perm-check-lightbox");
+            if (data.ok) {
+                if (existing) existing.remove();
+                return;
+            }
+            showPermissionCheckLightbox(data);
+        })
+        .catch(() => {});
+}
+
+function showPermissionCheckLightbox(data) {
+    const existing = document.getElementById("perm-check-lightbox");
+    if (existing) existing.remove();
+
+    const permissions = Array.isArray(data.permissions) ? data.permissions : [];
+    const missing = permissions.filter(p => p.status === "missing");
+    const notLicensed = permissions.filter(p => p.status === "not_licensed");
+    const ok = permissions.filter(p => p.status === "ok");
+    const sorted = [...missing, ...notLicensed, ...ok];
+
+    const itemsHtml = sorted.map(p => {
+        const badgeText = p.status === "missing" ? "Missing" : p.status === "not_licensed" ? "Not licensed" : "OK";
+        const detail = p.status === "missing" && p.detail ? `<small>${escHtml(p.detail.slice(0, 100))}</small>` : "";
+        return `
+            <li class="pc-perm-item ${escHtml(p.status)}">
+                <span class="pc-perm-dot"></span>
+                <span class="pc-perm-name">
+                    <strong>${escHtml(p.key)}</strong>
+                    <small>${escHtml(p.label)}${detail}</small>
+                </span>
+                <span class="pc-badge">${escHtml(badgeText)}</span>
+            </li>`;
+    }).join("");
+
+    const lightbox = document.createElement("div");
+    lightbox.id = "perm-check-lightbox";
+    lightbox.setAttribute("role", "dialog");
+    lightbox.setAttribute("aria-modal", "true");
+    lightbox.setAttribute("aria-labelledby", "pc-title");
+    lightbox.innerHTML = `
+        <div class="pc-card">
+            <div class="pc-header">
+                <span class="pc-icon">⚠️</span>
+                <div class="pc-header-text">
+                    <h3 id="pc-title">API Permissions Incomplete</h3>
+                    <p>${missing.length} permission${missing.length !== 1 ? "s" : ""} missing. Some EntraMap features will not work correctly until these are granted and admin consent is applied.</p>
+                </div>
+            </div>
+            <ul class="pc-perm-list">${itemsHtml}</ul>
+            <div class="pc-note">
+                Disconnect and sign in again to refresh your permissions.
+            </div>
+            <div class="pc-actions">
+                <button class="pc-btn-disconnect" id="pc-disconnect-btn" type="button" style="width: 100%;">
+                    <i class="fa-solid fa-plug-circle-xmark"></i> Disconnect &amp; Sign out
+                </button>
+            </div>
+        </div>`;
+
+    document.body.appendChild(lightbox);
+
+    document.getElementById("pc-disconnect-btn").addEventListener("click", () => {
+        try { localStorage.clear(); } catch (_) {}
+        try { sessionStorage.clear(); } catch (_) {}
+        window.location.href = "/auth/disconnect";
+    });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     loadImpactFilterState();
     initCytoscape();
     setupAuthOverlayTabs();
     setupAuthPermissionAccordion();
     setupMicrosoftSignInPopup();
+    setupSwitchAccount();
     bindSignedOutTutorialLaunch();
     bindDisconnectLightbox();
     bindToolbar();
@@ -4946,4 +5054,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     runHealthCheck();
+    if (APP_CONTEXT.signedIn) {
+        runPermissionCheck();
+    }
 });

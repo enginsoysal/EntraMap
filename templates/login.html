@@ -492,12 +492,17 @@
 
         <!-- ─── Tab: API Permissions ─── -->
         <div class="tab-panel" id="tab-permissions">
-            <p class="tagline">EntraMap requests these delegated Graph permissions. All are read-only. Click a permission to see why it is needed.</p>
+            <p class="tagline">EntraMap uses the following Microsoft Graph permissions. User.Read is delegated for sign-in; the rest are app permissions used for tenant-wide read visibility. Click a permission to see why it is needed.</p>
             <div class="perm-list">
 
                 <div class="perm-item">
                     <button class="perm-toggle" type="button">User.Read <span class="perm-tag required">required</span><span class="perm-chevron">&#9660;</span></button>
                     <div class="perm-body">Reads the signed-in user's basic profile (display name, email, photo). Required to show who is logged in and to anchor the session to a real identity.</div>
+                </div>
+
+                <div class="perm-item">
+                    <button class="perm-toggle" type="button">User.Read.All <span class="perm-tag required">required</span><span class="perm-chevron">&#9660;</span></button>
+                    <div class="perm-body">Reads full user profile data tenant-wide to enrich user search, identity mapping, and profile detail panels.</div>
                 </div>
 
                 <div class="perm-item">
@@ -516,6 +521,11 @@
                 </div>
 
                 <div class="perm-item">
+                    <button class="perm-toggle" type="button">DeviceManagementManagedDevices.Read.All <span class="perm-tag required">required</span><span class="perm-chevron">&#9660;</span></button>
+                    <div class="perm-body">Reads Intune managed device records and posture details used in graph detail views and impact analysis context.</div>
+                </div>
+
+                <div class="perm-item">
                     <button class="perm-toggle" type="button">Application.Read.All <span class="perm-tag required">required</span><span class="perm-chevron">&#9660;</span></button>
                     <div class="perm-body">Reads all enterprise applications and app registrations including service principals and app role assignments. Required to map application access paths and detect over-privileged roles.</div>
                 </div>
@@ -523,6 +533,21 @@
                 <div class="perm-item">
                     <button class="perm-toggle" type="button">DeviceManagementApps.Read.All <span class="perm-tag required">required</span><span class="perm-chevron">&#9660;</span></button>
                     <div class="perm-body">Reads Intune-managed application assignments including target groups. Required to check which groups are targeted by Intune app deployments in the group deletion impact analysis.</div>
+                </div>
+
+                <div class="perm-item">
+                    <button class="perm-toggle" type="button">DeviceManagementConfiguration.Read.All <span class="perm-tag required">required</span><span class="perm-chevron">&#9660;</span></button>
+                    <div class="perm-body">Reads Intune configuration domains including device configurations, settings catalog, administrative templates, and compliance policies.</div>
+                </div>
+
+                <div class="perm-item">
+                    <button class="perm-toggle" type="button">DeviceManagementServiceConfig.Read.All <span class="perm-tag required">required</span><span class="perm-chevron">&#9660;</span></button>
+                    <div class="perm-body">Reads Intune service configuration domains like Autopilot deployment profiles and enrollment status page policies.</div>
+                </div>
+
+                <div class="perm-item">
+                    <button class="perm-toggle" type="button">CloudPC.Read.All <span class="perm-tag required">required</span><span class="perm-chevron">&#9660;</span></button>
+                    <div class="perm-body">Reads Windows 365 Cloud PC provisioning and user settings assignments to detect cloud-desktop dependencies.</div>
                 </div>
 
                 <div class="perm-item">
@@ -536,8 +561,8 @@
                 </div>
 
                 <div class="perm-item">
-                    <button class="perm-toggle" type="button">Organization.Read.All <span class="perm-tag required">required</span><span class="perm-chevron">&#9660;</span></button>
-                    <div class="perm-body">Reads tenant-level organisation details and assigned license SKUs. Required to resolve group-based license assignments to human-readable product names such as Microsoft 365 E3.</div>
+                    <button class="perm-toggle" type="button">AdministrativeUnit.Read.All <span class="perm-tag required">required</span><span class="perm-chevron">&#9660;</span></button>
+                    <div class="perm-body">Reads administrative units and their scoped members. Required to detect administrative boundary dependencies before deletion actions.</div>
                 </div>
 
                 <div class="perm-item">
@@ -553,11 +578,6 @@
                 <div class="perm-item">
                     <button class="perm-toggle" type="button">Sites.Read.All <span class="perm-tag required">required</span><span class="perm-chevron">&#9660;</span></button>
                     <div class="perm-body">Reads SharePoint site metadata across the tenant. Required to detect groups with associated SharePoint team sites and flag them as active collaboration workloads before deletion.</div>
-                </div>
-
-                <div class="perm-item">
-                    <button class="perm-toggle" type="button">Tasks.Read <span class="perm-tag required">required</span><span class="perm-chevron">&#9660;</span></button>
-                    <div class="perm-body">Reads Planner tasks and plans. Required to detect groups that own Planner plans so that plan ownership can be migrated before the group is deleted.</div>
                 </div>
 
                 <div class="perm-item">

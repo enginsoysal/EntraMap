@@ -335,8 +335,133 @@ def index():
     )
 
 
-@app.route("/api/health")
-def health():
+@app.route("/api/permission-check")
+@login_required
+def permission_check():
+    """
+    Probe each required Graph permission scope and report which ones are missing.
+    Each probe uses the minimal read that exercises the permission.
+    """
+    from services.graph_service import GraphService
+
+    token = auth_engine.get_token(session)
+
+    PROBES = [
+        {
+            "key": "Directory.Read.All",
+            "label": "Directory (Users / Groups / Devices)",
+            "endpoint": "/users?$select=id&$top=1",
+        },
+        {
+            "key": "Group.Read.All",
+            "label": "Groups",
+            "endpoint": "/groups?$select=id&$top=1",
+        },
+        {
+            "key": "Policy.Read.All",
+            "label": "Conditional Access Policies",
+            "endpoint": "/identity/conditionalAccess/policies?$select=id&$top=1",
+        },
+        {
+            "key": "RoleManagement.Read.Directory",
+            "label": "Directory Role Assignments",
+            "endpoint": "/roleManagement/directory/roleAssignments?$top=1",
+        },
+        {
+            "key": "AdministrativeUnit.Read.All",
+            "label": "Administrative Units",
+            "endpoint": "/directory/administrativeUnits?$select=id&$top=1",
+        },
+        {
+            "key": "Application.Read.All",
+            "label": "Enterprise Applications",
+            "endpoint": "/servicePrincipals?$select=id&$top=1",
+        },
+        {
+            "key": "EntitlementManagement.Read.All",
+            "label": "Entitlement Management",
+            "endpoint": "/identityGovernance/entitlementManagement/assignmentPolicies?$select=id&$top=1",
+        },
+        {
+            "key": "DeviceManagementApps.Read.All",
+            "label": "Intune App Assignments",
+            "endpoint": "/deviceAppManagement/mobileApps?$select=id&$top=1",
+        },
+        {
+            "key": "DeviceManagementConfiguration.Read.All",
+            "label": "Intune Device Configurations / Compliance",
+            "endpoint": "/deviceManagement/deviceConfigurations?$select=id&$top=1",
+        },
+        {
+            "key": "DeviceManagementServiceConfig.Read.All",
+            "label": "Autopilot / Enrollment Profiles",
+            "endpoint": "/deviceManagement/windowsAutopilotDeploymentProfiles?$select=id&$top=1",
+        },
+        {
+            "key": "CloudPC.Read.All",
+            "label": "Windows 365 Cloud PC",
+            "endpoint": "/deviceManagement/virtualEndpoint/provisioningPolicies?$select=id&$top=1",
+        },
+        {
+            "key": "Sites.Read.All",
+            "label": "SharePoint Sites",
+            "endpoint": "/sites/root?$select=id",
+        },
+        {
+            "key": "Team.ReadBasic.All",
+            "label": "Microsoft Teams",
+            "endpoint": "/teams?$select=id&$top=1",
+        },
+    ]
+
+    results = []
+    missing = []
+
+    for probe in PROBES:
+        data = GraphService.get(probe["endpoint"], token)
+        if data is None:
+            # 404 — endpoint exists but nothing found, permission is OK
+            status = "ok"
+            detail = ""
+        elif "error" in data:
+            code = data.get("error")
+            msg = str(data.get("message", ""))
+            msg_lower = msg.lower()
+            # HTML response = service not available in this tenant (not licensed)
+            is_html_response = "<html" in msg_lower or "<title>" in msg_lower
+            # 400 "not found for segment" = feature not licensed, not a permission gap
+            not_licensed = is_html_response or any(k in msg_lower for k in [
+                "resource not found for the segment",
+                "not found for segment",
+                "feature is not available",
+                "tenant does not have a license",
+            ])
+            if not_licensed:
+                status = "not_licensed"
+                detail = f"Feature not available in this tenant ({msg[:120]})"
+            else:
+                status = "missing"
+                detail = f"HTTP {code}: {msg[:160]}"
+                missing.append(probe["key"])
+        else:
+            status = "ok"
+            detail = ""
+
+        results.append({
+            "key": probe["key"],
+            "label": probe["label"],
+            "status": status,
+            "detail": detail,
+        })
+
+    return jsonify({
+        "ok": len(missing) == 0,
+        "missing": missing,
+        "permissions": results,
+    })
+
+
+
     is_valid, err = Config.validate()
     return jsonify({
         "status": "ok" if is_valid else "warning",

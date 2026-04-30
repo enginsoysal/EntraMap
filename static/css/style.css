@@ -37,6 +37,172 @@ body {
     overflow: hidden;
 }
 
+/* ── Permission-check lightbox ────────────────────────────────────────── */
+#perm-check-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    background: rgba(3,6,16,.82);
+    backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+#perm-check-lightbox.d-none { display: none; }
+
+.pc-card {
+    width: min(540px, 96vw);
+    background: linear-gradient(155deg, #161c3a 0%, #0d1229 100%);
+    border: 1px solid rgba(251,191,36,.35);
+    border-radius: 20px;
+    padding: 30px 26px 24px;
+    box-shadow: 0 40px 100px rgba(0,0,0,.72), 0 0 0 1px rgba(251,191,36,.08);
+    animation: lb-in .22s ease;
+}
+
+.pc-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 16px;
+}
+
+.pc-icon {
+    font-size: 2rem;
+    line-height: 1;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.pc-header-text h3 {
+    margin: 0 0 5px;
+    font-size: 1.12rem;
+    font-weight: 800;
+    color: #fef3c7;
+}
+
+.pc-header-text p {
+    margin: 0;
+    color: #94a3b8;
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+.pc-perm-list {
+    list-style: none;
+    margin: 0 0 20px;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 260px;
+    overflow-y: auto;
+}
+
+.pc-perm-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255,255,255,.04);
+    border: 1px solid rgba(255,255,255,.07);
+    border-radius: 9px;
+    padding: 9px 12px;
+}
+
+.pc-perm-item.missing {
+    border-color: rgba(239,68,68,.35);
+    background: rgba(239,68,68,.06);
+}
+
+.pc-perm-item.not_licensed {
+    border-color: rgba(148,163,184,.2);
+    background: rgba(148,163,184,.04);
+    opacity: 0.7;
+}
+
+.pc-perm-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.pc-perm-item.missing .pc-perm-dot  { background: #f87171; box-shadow: 0 0 6px rgba(248,113,113,.5); }
+.pc-perm-item.not_licensed .pc-perm-dot { background: #64748b; }
+.pc-perm-item.ok .pc-perm-dot       { background: #4ade80; box-shadow: 0 0 6px rgba(74,222,128,.4); }
+
+.pc-perm-name {
+    flex: 1;
+    min-width: 0;
+}
+.pc-perm-name strong {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #e2e8f0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.pc-perm-name small {
+    display: block;
+    font-size: 0.74rem;
+    color: #64748b;
+    margin-top: 1px;
+}
+.pc-perm-item.missing .pc-perm-name small { color: #f87171; opacity: .8; }
+
+.pc-badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    flex-shrink: 0;
+}
+.pc-perm-item.missing    .pc-badge { background: rgba(239,68,68,.18); color: #f87171; border: 1px solid rgba(239,68,68,.35); }
+.pc-perm-item.not_licensed .pc-badge { background: rgba(100,116,139,.15); color: #64748b; border: 1px solid rgba(100,116,139,.25); }
+.pc-perm-item.ok         .pc-badge { background: rgba(74,222,128,.12); color: #4ade80; border: 1px solid rgba(74,222,128,.25); }
+
+.pc-note {
+    font-size: 0.82rem;
+    color: #94a3b8;
+    line-height: 1.5;
+    margin-bottom: 15px;
+    padding: 10px 12px;
+    background: rgba(100,116,139,.08);
+    border: 1px solid rgba(100,116,139,.2);
+    border-radius: 6px;
+}
+
+.pc-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.pc-btn-disconnect {
+    padding: 9px 20px;
+    border-radius: 9px;
+    font-size: 0.84rem;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1px solid rgba(239,68,68,.45);
+    background: rgba(239,68,68,.15);
+    color: #f87171;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    transition: background .15s, box-shadow .15s, transform .12s;
+}
+.pc-btn-disconnect:hover {
+    background: rgba(239,68,68,.28);
+    box-shadow: 0 0 20px rgba(239,68,68,.28);
+    transform: translateY(-1px);
+}
+
 /* ---- App layout ------------------------------------------ */
 #app {
     display: grid;
