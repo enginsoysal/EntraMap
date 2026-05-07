@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Version 0.5.3
+Version 0.5.4
 
 EntraMap is a Flask web application that signs users in with Microsoft Entra ID and visualizes tenant relationships as an interactive graph. It helps you explore users, devices, groups, applications, and Conditional Access policies from a single screen.
 
@@ -44,14 +44,15 @@ EntraMap is a Flask web application that signs users in with Microsoft Entra ID 
 - In-app changelog rendered directly from `LOG.md`
 - Idle session timeout warning with 60-second countdown before auto sign-out
 
-## Latest Changes (0.5.3)
+## Latest Changes (0.5.4)
 
-- Bumped application version to 0.5.3
-- Added API permission check on sign-in: lightbox warning when required Graph permissions are missing or not licensed
-- Improved permission error classification: HTML 403 responses (unlicensed features like Windows 365 / Autopilot) now correctly shown as "Not licensed" instead of "Missing"
-- Simplified permission lightbox: removed Azure Portal instructions, single Disconnect & Sign out action
-- Added `/api/permission-check` endpoint probing all 13 key scopes
-- Synchronized SCOPES list in config.py to exact 18-permission set with admin consent
+- Bumped application version to 0.5.4
+- Added "Continue anyway" button to permission lightbox for pragmatic workflow with partial permissions
+- Implemented skip-state tracking: lightbox no longer re-appears after user dismisses it until they click "Refresh permissions"
+- Added scope-specific friendly error messages for all 18 API permissions
+- Improved permission error detail display with user-friendly descriptions instead of raw HTTP error codes
+- Enhanced lightbox note text to reflect new continue-anyway workflow option
+- Scope messages distinguish between missing permissions and unlicensed features with context-specific guidance
 - Updated release documentation in README.md, FILES.md, and LOG.md for version consistency
 
 ## 0.4.11 Focus

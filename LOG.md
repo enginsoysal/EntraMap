@@ -1,5 +1,15 @@
 # Change Log
 
+## 0.5.4 - 2026-05-07
+
+- Bumped application version to 0.5.4
+- Added "Continue anyway" button to permission lightbox allowing users to work with partial permissions
+- Implemented localStorage-based skip-state tracking to prevent lightbox re-display until refresh is clicked
+- Redesigned permission error messages with scope-specific friendly descriptions for all 18 scopes
+- Improved error detail rendering with full messages instead of truncated raw HTTP codes
+- Scope-specific messages for Intune (Mobile Apps, Device Configuration, Autopilot), SharePoint, Teams, Entitlement Management
+- Updated release documentation in README.md, FILES.md, and LOG.md for version consistency
+
 ## 0.5.3 - 2026-04-30
 
 - Bumped application version to 0.5.3
