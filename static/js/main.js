@@ -4972,8 +4972,31 @@ function runHealthCheck() {
 
 // ── Permission Check Lightbox ────────────────────────────────────────────────
 
+function getPermissionCheckSkipKey() {
+    return "entramap_permission_check_skipped";
+}
+
+function isPermissionCheckSkipped() {
+    try {
+        return localStorage.getItem(getPermissionCheckSkipKey()) === "true";
+    } catch (_) {
+        return false;
+    }
+}
+
+function setPermissionCheckSkipped(skipped) {
+    try {
+        if (skipped) {
+            localStorage.setItem(getPermissionCheckSkipKey(), "true");
+        } else {
+            localStorage.removeItem(getPermissionCheckSkipKey());
+        }
+    } catch (_) {}
+}
+
 function runPermissionCheck() {
     if (!APP_CONTEXT.signedIn) return;
+    if (isPermissionCheckSkipped()) return;
 
     fetch("/api/permission-check")
         .then(r => r.json())
@@ -4981,6 +5004,7 @@ function runPermissionCheck() {
             const existing = document.getElementById("perm-check-lightbox");
             if (data.ok) {
                 if (existing) existing.remove();
+                setPermissionCheckSkipped(false);
                 return;
             }
             showPermissionCheckLightbox(data);
@@ -5035,11 +5059,14 @@ function showPermissionCheckLightbox(data) {
             </div>
             <ul class="pc-perm-list">${itemsHtml}</ul>
             <div class="pc-note">
-                Use Refresh permissions first to re-request delegated consent. If a scope is still missing, use Disconnect &amp; Sign out and sign in again.
+                Use Refresh permissions to re-request delegated consent. Or continue anyway to work with available permissions.
             </div>
             <div class="pc-actions">
                 <button class="pc-btn-refresh" id="pc-refresh-btn" type="button">
                     <i class="fa-solid fa-rotate-right"></i> Refresh permissions
+                </button>
+                <button class="pc-btn-continue" id="pc-continue-btn" type="button">
+                    <i class="fa-solid fa-arrow-right"></i> Continue anyway
                 </button>
                 <button class="pc-btn-disconnect" id="pc-disconnect-btn" type="button">
                     <i class="fa-solid fa-plug-circle-xmark"></i> Disconnect &amp; Sign out
@@ -5050,10 +5077,17 @@ function showPermissionCheckLightbox(data) {
     document.body.appendChild(lightbox);
 
     document.getElementById("pc-refresh-btn")?.addEventListener("click", () => {
+        setPermissionCheckSkipped(false);
         window.location.href = "/auth/signin?force_consent=1";
     });
 
-    document.getElementById("pc-disconnect-btn").addEventListener("click", () => {
+    document.getElementById("pc-continue-btn")?.addEventListener("click", () => {
+        setPermissionCheckSkipped(true);
+        lightbox.remove();
+    });
+
+    document.getElementById("pc-disconnect-btn")?.addEventListener("click", () => {
+        setPermissionCheckSkipped(false);
         try { localStorage.clear(); } catch (_) {}
         try { sessionStorage.clear(); } catch (_) {}
         window.location.href = "/auth/disconnect";

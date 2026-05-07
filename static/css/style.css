@@ -186,8 +186,9 @@ body {
 }
 
 .pc-btn-refresh,
+.pc-btn-continue,
 .pc-btn-disconnect {
-    min-width: 220px;
+    min-width: 180px;
 }
 
 .pc-btn-refresh {
@@ -209,6 +210,28 @@ body {
 .pc-btn-refresh:hover {
     background: rgba(56,189,248,.25);
     box-shadow: 0 0 20px rgba(56,189,248,.25);
+    transform: translateY(-1px);
+}
+
+.pc-btn-continue {
+    padding: 9px 20px;
+    border-radius: 9px;
+    font-size: 0.84rem;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1px solid rgba(34,197,94,.4);
+    background: rgba(34,197,94,.14);
+    color: #86efac;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    transition: background .15s, box-shadow .15s, transform .12s;
+}
+
+.pc-btn-continue:hover {
+    background: rgba(34,197,94,.25);
+    box-shadow: 0 0 20px rgba(34,197,94,.25);
     transform: translateY(-1px);
 }
 
