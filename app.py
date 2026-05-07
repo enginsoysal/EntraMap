@@ -414,10 +414,32 @@ def permission_check():
         },
     ]
 
+    # CloudPC scope is only actionable when tenant has Windows 365 service plans.
+    def _has_windows365_service() -> bool:
+        sku_data = GraphService.get("/subscribedSkus?$select=skuPartNumber,capabilityStatus,prepaidUnits", token)
+        if not sku_data or "error" in sku_data:
+            return False
+        for sku in sku_data.get("value", []) or []:
+            part = str(sku.get("skuPartNumber", "")).upper()
+            if "WINDOWS_365" in part or "CPC_" in part or "WIN365" in part:
+                return True
+        return False
+
+    tenant_has_windows365 = _has_windows365_service()
+
     results = []
     missing = []
 
     for probe in PROBES:
+        if probe["key"] == "CloudPC.Read.All" and not tenant_has_windows365:
+            results.append({
+                "key": probe["key"],
+                "label": probe["label"],
+                "status": "not_applicable",
+                "detail": "No Windows 365 service plans detected for this tenant.",
+            })
+            continue
+
         data = GraphService.get(probe["endpoint"], token)
         if data is None:
             # 404 — endpoint exists but nothing found, permission is OK
@@ -458,6 +480,9 @@ def permission_check():
         "ok": len(missing) == 0,
         "missing": missing,
         "permissions": results,
+        "tenant": {
+            "has_windows365": tenant_has_windows365,
+        },
     })
 
 

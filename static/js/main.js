@@ -4995,11 +4995,18 @@ function showPermissionCheckLightbox(data) {
     const permissions = Array.isArray(data.permissions) ? data.permissions : [];
     const missing = permissions.filter(p => p.status === "missing");
     const notLicensed = permissions.filter(p => p.status === "not_licensed");
+    const notApplicable = permissions.filter(p => p.status === "not_applicable");
     const ok = permissions.filter(p => p.status === "ok");
-    const sorted = [...missing, ...notLicensed, ...ok];
+    const sorted = [...missing, ...notLicensed, ...notApplicable, ...ok];
 
     const itemsHtml = sorted.map(p => {
-        const badgeText = p.status === "missing" ? "Missing" : p.status === "not_licensed" ? "Not licensed" : "OK";
+        const badgeText = p.status === "missing"
+            ? "Missing"
+            : p.status === "not_licensed"
+                ? "Not licensed"
+                : p.status === "not_applicable"
+                    ? "Not applicable"
+                    : "OK";
         const detail = p.status === "missing" && p.detail ? `<small>${escHtml(p.detail.slice(0, 100))}</small>` : "";
         return `
             <li class="pc-perm-item ${escHtml(p.status)}">
@@ -5028,16 +5035,23 @@ function showPermissionCheckLightbox(data) {
             </div>
             <ul class="pc-perm-list">${itemsHtml}</ul>
             <div class="pc-note">
-                Disconnect and sign in again to refresh your permissions.
+                Use Refresh permissions first to re-request delegated consent. If a scope is still missing, use Disconnect &amp; Sign out and sign in again.
             </div>
             <div class="pc-actions">
-                <button class="pc-btn-disconnect" id="pc-disconnect-btn" type="button" style="width: 100%;">
+                <button class="pc-btn-refresh" id="pc-refresh-btn" type="button">
+                    <i class="fa-solid fa-rotate-right"></i> Refresh permissions
+                </button>
+                <button class="pc-btn-disconnect" id="pc-disconnect-btn" type="button">
                     <i class="fa-solid fa-plug-circle-xmark"></i> Disconnect &amp; Sign out
                 </button>
             </div>
         </div>`;
 
     document.body.appendChild(lightbox);
+
+    document.getElementById("pc-refresh-btn")?.addEventListener("click", () => {
+        window.location.href = "/auth/signin?force_consent=1";
+    });
 
     document.getElementById("pc-disconnect-btn").addEventListener("click", () => {
         try { localStorage.clear(); } catch (_) {}

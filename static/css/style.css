@@ -129,6 +129,7 @@ body {
 }
 .pc-perm-item.missing .pc-perm-dot  { background: #f87171; box-shadow: 0 0 6px rgba(248,113,113,.5); }
 .pc-perm-item.not_licensed .pc-perm-dot { background: #64748b; }
+.pc-perm-item.not_applicable .pc-perm-dot { background: #94a3b8; }
 .pc-perm-item.ok .pc-perm-dot       { background: #4ade80; box-shadow: 0 0 6px rgba(74,222,128,.4); }
 
 .pc-perm-name {
@@ -163,6 +164,7 @@ body {
 }
 .pc-perm-item.missing    .pc-badge { background: rgba(239,68,68,.18); color: #f87171; border: 1px solid rgba(239,68,68,.35); }
 .pc-perm-item.not_licensed .pc-badge { background: rgba(100,116,139,.15); color: #64748b; border: 1px solid rgba(100,116,139,.25); }
+.pc-perm-item.not_applicable .pc-badge { background: rgba(148,163,184,.12); color: #94a3b8; border: 1px solid rgba(148,163,184,.25); }
 .pc-perm-item.ok         .pc-badge { background: rgba(74,222,128,.12); color: #4ade80; border: 1px solid rgba(74,222,128,.25); }
 
 .pc-note {
@@ -181,6 +183,33 @@ body {
     gap: 10px;
     justify-content: center;
     flex-wrap: wrap;
+}
+
+.pc-btn-refresh,
+.pc-btn-disconnect {
+    min-width: 220px;
+}
+
+.pc-btn-refresh {
+    padding: 9px 20px;
+    border-radius: 9px;
+    font-size: 0.84rem;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1px solid rgba(56,189,248,.4);
+    background: rgba(56,189,248,.14);
+    color: #7dd3fc;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    transition: background .15s, box-shadow .15s, transform .12s;
+}
+
+.pc-btn-refresh:hover {
+    background: rgba(56,189,248,.25);
+    box-shadow: 0 0 20px rgba(56,189,248,.25);
+    transform: translateY(-1px);
 }
 
 .pc-btn-disconnect {
