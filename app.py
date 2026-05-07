@@ -427,6 +427,81 @@ def permission_check():
 
     tenant_has_windows365 = _has_windows365_service()
 
+    # Friendly descriptions for each permission scope type
+    def _get_friendly_message_for_scope(probe_key: str, is_not_licensed: bool) -> str:
+        """Get a user-friendly message for the given permission scope."""
+        scope_messages = {
+            "Directory.Read.All": {
+                "missing": "Directory access required",
+                "not_licensed": "Directory access not available"
+            },
+            "Group.Read.All": {
+                "missing": "Group reading requires admin consent",
+                "not_licensed": "Group reading not available"
+            },
+            "User.Read.All": {
+                "missing": "User directory access required",
+                "not_licensed": "User data access not available"
+            },
+            "User.ReadBasic.All": {
+                "missing": "Basic user data required",
+                "not_licensed": "Basic user data not available"
+            },
+            "Device.Read.All": {
+                "missing": "Device directory access required",
+                "not_licensed": "Device data access not available"
+            },
+            "Policy.Read.All": {
+                "missing": "Conditional Access policies access required",
+                "not_licensed": "Conditional Access not available"
+            },
+            "RoleManagement.Read.Directory": {
+                "missing": "Directory role management access required",
+                "not_licensed": "Role management not available"
+            },
+            "AdministrativeUnit.Read.All": {
+                "missing": "Administrative Units access required",
+                "not_licensed": "Administrative Units not available"
+            },
+            "Application.Read.All": {
+                "missing": "Enterprise Applications access required",
+                "not_licensed": "Applications data not available"
+            },
+            "EntitlementManagement.Read.All": {
+                "missing": "Entitlement Management license required",
+                "not_licensed": "Entitlement Management license not activated"
+            },
+            "DeviceManagementApps.Read.All": {
+                "missing": "Intune Mobile Application Management license required",
+                "not_licensed": "Intune Mobile Application Management not activated"
+            },
+            "DeviceManagementConfiguration.Read.All": {
+                "missing": "Intune Device Management license required",
+                "not_licensed": "Intune Device Management not activated"
+            },
+            "DeviceManagementServiceConfig.Read.All": {
+                "missing": "Intune Autopilot & Enrollment license required",
+                "not_licensed": "Intune Autopilot & Enrollment not activated"
+            },
+            "CloudPC.Read.All": {
+                "missing": "Windows 365 license required",
+                "not_licensed": "Windows 365 license not activated"
+            },
+            "Sites.Read.All": {
+                "missing": "SharePoint Sites access required",
+                "not_licensed": "SharePoint license not activated"
+            },
+            "Team.ReadBasic.All": {
+                "missing": "Microsoft Teams access required",
+                "not_licensed": "Microsoft Teams license not activated"
+            },
+        }
+        
+        msg_type = "not_licensed" if is_not_licensed else "missing"
+        if probe_key in scope_messages:
+            return scope_messages[probe_key].get(msg_type, "Contact admin for access")
+        return "License required - Contact admin" if is_not_licensed else "Admin consent required"
+
     results = []
     missing = []
 
@@ -462,42 +537,10 @@ def permission_check():
             
             if not_licensed:
                 status = "not_licensed"
-                # Extract friendly message from error
-                if "spo" in msg_lower or "sharepoint" in msg_lower:
-                    friendly = "SharePoint license not activated"
-                elif "teams" in msg_lower or "teamwork" in msg_lower:
-                    friendly = "Teams license not activated"
-                elif "intune" in msg_lower:
-                    friendly = "Intune license not activated"
-                elif "entitlement" in msg_lower:
-                    friendly = "Entitlement Management not enabled"
-                elif "cloudpc" in msg_lower or "windows 365" in msg_lower:
-                    friendly = "Windows 365 license not activated"
-                else:
-                    friendly = "Service not activated in this tenant"
-                detail = friendly
+                detail = _get_friendly_message_for_scope(probe["key"], True)
             else:
                 status = "missing"
-                # Extract friendly message from error code
-                error_code = str(data.get("error", {}).get("code", "") if isinstance(data.get("error"), dict) else code)
-                error_code_lower = error_code.lower()
-                
-                if "nolicense" in error_code_lower:
-                    friendly = "License required - Contact admin"
-                elif "authentication" in error_code_lower:
-                    friendly = "Service not configured - Contact admin"
-                elif "unauthorized" in error_code_lower:
-                    friendly = "Admin consent required"
-                elif "badrequest" in error_code_lower:
-                    friendly = "Invalid tenant configuration"
-                elif "forbidden" in error_code_lower:
-                    friendly = "Permission denied by admin"
-                elif "notfound" in error_code_lower:
-                    friendly = "Feature not available in this tenant"
-                else:
-                    friendly = "Permission issue detected"
-                
-                detail = friendly
+                detail = _get_friendly_message_for_scope(probe["key"], False)
                 missing.append(probe["key"])
         else:
             status = "ok"
