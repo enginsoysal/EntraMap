@@ -5031,13 +5031,16 @@ function showPermissionCheckLightbox(data) {
                 : p.status === "not_applicable"
                     ? "Not applicable"
                     : "OK";
-        const detail = p.status === "missing" && p.detail ? `<small>${escHtml(p.detail.slice(0, 100))}</small>` : "";
+        const detail = (p.status === "missing" || p.status === "not_licensed") && p.detail 
+            ? `<span class="pc-perm-detail">${escHtml(p.detail)}</span>` 
+            : "";
         return `
             <li class="pc-perm-item ${escHtml(p.status)}">
                 <span class="pc-perm-dot"></span>
                 <span class="pc-perm-name">
                     <strong>${escHtml(p.key)}</strong>
-                    <small>${escHtml(p.label)}${detail}</small>
+                    <small>${escHtml(p.label)}</small>
+                    ${detail}
                 </span>
                 <span class="pc-badge">${escHtml(badgeText)}</span>
             </li>`;

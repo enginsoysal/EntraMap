@@ -449,6 +449,7 @@ def permission_check():
             code = data.get("error")
             msg = str(data.get("message", ""))
             msg_lower = msg.lower()
+            
             # HTML response = service not available in this tenant (not licensed)
             is_html_response = "<html" in msg_lower or "<title>" in msg_lower
             # 400 "not found for segment" = feature not licensed, not a permission gap
@@ -458,12 +459,45 @@ def permission_check():
                 "feature is not available",
                 "tenant does not have a license",
             ])
+            
             if not_licensed:
                 status = "not_licensed"
-                detail = f"Feature not available in this tenant ({msg[:120]})"
+                # Extract friendly message from error
+                if "spo" in msg_lower or "sharepoint" in msg_lower:
+                    friendly = "SharePoint license not activated"
+                elif "teams" in msg_lower or "teamwork" in msg_lower:
+                    friendly = "Teams license not activated"
+                elif "intune" in msg_lower:
+                    friendly = "Intune license not activated"
+                elif "entitlement" in msg_lower:
+                    friendly = "Entitlement Management not enabled"
+                elif "cloudpc" in msg_lower or "windows 365" in msg_lower:
+                    friendly = "Windows 365 license not activated"
+                else:
+                    friendly = "Service not activated in this tenant"
+                detail = friendly
             else:
                 status = "missing"
-                detail = f"HTTP {code}: {msg[:160]}"
+                # Extract friendly message from error code
+                error_code = str(data.get("error", {}).get("code", "") if isinstance(data.get("error"), dict) else code)
+                error_code_lower = error_code.lower()
+                
+                if "nolicense" in error_code_lower:
+                    friendly = "License required - Contact admin"
+                elif "authentication" in error_code_lower:
+                    friendly = "Service not configured - Contact admin"
+                elif "unauthorized" in error_code_lower:
+                    friendly = "Admin consent required"
+                elif "badrequest" in error_code_lower:
+                    friendly = "Invalid tenant configuration"
+                elif "forbidden" in error_code_lower:
+                    friendly = "Permission denied by admin"
+                elif "notfound" in error_code_lower:
+                    friendly = "Feature not available in this tenant"
+                else:
+                    friendly = "Permission issue detected"
+                
+                detail = friendly
                 missing.append(probe["key"])
         else:
             status = "ok"

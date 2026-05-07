@@ -153,6 +153,17 @@ body {
 }
 .pc-perm-item.missing .pc-perm-name small { color: #f87171; opacity: .8; }
 
+.pc-perm-detail {
+    display: block;
+    font-size: 0.73rem;
+    color: #94a3b8;
+    margin-top: 4px;
+    line-height: 1.3;
+    font-style: italic;
+}
+.pc-perm-item.missing .pc-perm-detail { color: #fca5a5; }
+.pc-perm-item.not_licensed .pc-perm-detail { color: #94a3b8; }
+
 .pc-badge {
     font-size: 0.7rem;
     font-weight: 700;
