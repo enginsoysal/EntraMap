@@ -55,11 +55,11 @@ EntraMap is a Flask web application that signs users in with Microsoft Entra ID 
 - Scope messages distinguish between missing permissions and unlicensed features with context-specific guidance
 - Updated release documentation in README.md, FILES.md, and LOG.md for version consistency
 
-## 0.4.11 Focus
+## Interactive Onboarding Focus
 
-Version 0.4.11 focuses on interactive operator onboarding: guided walkthroughs for search, map, impact, compare, and export flows using safe dummy data.
+EntraMap includes interactive operator onboarding: guided walkthroughs for search, map, impact, compare, and export flows using safe dummy data.
 
-Operational highlights in 0.4.11:
+Operational highlights:
 
 - in-panel tutorial launcher below search with one-click phase selection
 - progressive guided tracks from basic usage up to expert and god-mode operator drills
