@@ -68,6 +68,11 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_50935D82CEBE4B0491DC920F0AB1D59D }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_8E3D4118C473446FA65ECC9DAF5F9DC9 }}
 
+      - name: Stop App Service before deployment
+        run: |
+          az webapp stop --resource-group prosystech --name entramap
+          sleep 5
+
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v3
         id: deploy-to-webapp
@@ -75,4 +80,9 @@ jobs:
           app-name: 'entramap'
           slot-name: 'Production'
           package: ./release
+
+      - name: Start App Service after deployment
+        run: |
+          az webapp start --resource-group prosystech --name entramap
+          sleep 10
           
