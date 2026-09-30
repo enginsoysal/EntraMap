@@ -210,6 +210,44 @@ class GraphTests(unittest.TestCase):
 
 
 class IdentityTests(unittest.TestCase):
+    def test_real_msal_organizations_cache_uses_validated_tenant_authority(self):
+        from msal import SerializableTokenCache
+        cache = SerializableTokenCache()
+        cache.add({'client_id':'client', 'token_endpoint':'https://login.microsoftonline.com/organizations/oauth2/v2.0/token', 'scope':['User.Read'], 'response':{'access_token':'fixture-token', 'id_token_claims':{'oid':'current','tid':'tenant','sub':'subject','preferred_username':'fixture@example.invalid'}}})
+        accounts = cache.find(cache.CredentialType.ACCOUNT)
+        self.assertEqual(accounts[0]['realm'], 'organizations')
+        engine=AuthEngine(Config); client=Mock()
+        client.get_accounts.return_value=accounts
+        client.acquire_token_silent.return_value={'access_token':'selected'}
+        with patch.object(engine,'_load_cache',return_value=cache),patch.object(engine,'_msal_app',return_value=client) as factory,patch.object(engine,'_save_cache'):
+            self.assertEqual(engine.get_token({'user':{'oid':'current','tid':'tenant'}}),'selected')
+        self.assertEqual(factory.call_args.kwargs['tenant'],'tenant')
+
+    def test_generic_realm_does_not_allow_another_account(self):
+        engine=AuthEngine(Config); client=Mock()
+        client.get_accounts.return_value=[{'local_account_id':'other','realm':'organizations'}]
+        with patch.object(engine,'_load_cache'),patch.object(engine,'_msal_app',return_value=client):
+            self.assertIsNone(engine.get_token({'user':{'oid':'current','tid':'tenant'}}))
+        client.acquire_token_silent.assert_not_called()
+
+    def test_real_msal_refresh_targets_session_tenant(self):
+        import json
+        from msal import SerializableTokenCache, ConfidentialClientApplication
+        cache = SerializableTokenCache()
+        cache.add({'client_id':'client', 'token_endpoint':'https://login.microsoftonline.com/organizations/oauth2/v2.0/token', 'scope':['User.Read'], 'response':{'access_token':'old-fixture-token','refresh_token':'fixture-refresh','id_token_claims':{'oid':'current','tid':'tenant','sub':'subject','preferred_username':'fixture@example.invalid'}}})
+        http=Mock()
+        def discovery(url, **kwargs):
+            tenant = 'organizations' if '/organizations/' in url else 'tenant'
+            return Mock(status_code=200, text=json.dumps({'authorization_endpoint':f'https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize','token_endpoint':f'https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token'}))
+        http.get.side_effect=discovery
+        http.post.return_value=Mock(status_code=200,headers={},text=json.dumps({'access_token':'fresh-tenant-token','expires_in':3600,'scope':'User.Read'}))
+        engine=AuthEngine(Config);engine.scopes=['User.Read'];engine.client_id='client';engine.client_secret='fixture-secret'
+        def factory(*args, **kwargs):
+            return ConfidentialClientApplication(*args, **kwargs, http_client=http, instance_discovery=False)
+        with patch.object(engine,'_load_cache',return_value=cache),patch('engines.auth_engine.ConfidentialClientApplication',side_effect=factory),patch.object(engine,'_save_cache'):
+            self.assertEqual(engine.get_token({'user':{'oid':'current','tid':'tenant'}}),'fresh-tenant-token')
+        self.assertEqual(http.post.call_args.args[0],'https://login.microsoftonline.com/tenant/oauth2/v2.0/token')
+
     def test_token_matches_current_account_and_tenant(self):
         engine=AuthEngine(Config); client=Mock()
         correct={'local_account_id':'current','realm':'tenant'}

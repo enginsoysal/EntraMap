@@ -43,11 +43,11 @@ class AuthEngine:
             encrypted = CacheService.encrypt(cache.serialize())
             SessionService.set_token_cache(session, encrypted)
 
-    def _msal_app(self, cache: Optional[SerializableTokenCache] = None) -> ConfidentialClientApplication:
+    def _msal_app(self, cache: Optional[SerializableTokenCache] = None, tenant: Optional[str] = None) -> ConfidentialClientApplication:
         """Create MSAL app instance"""
         return ConfidentialClientApplication(
             self.client_id,
-            authority="https://login.microsoftonline.com/organizations",
+            authority=f"https://login.microsoftonline.com/{tenant or 'organizations'}",
             client_credential=self.client_secret,
             token_cache=cache,
         )
@@ -106,13 +106,19 @@ class AuthEngine:
 
     def get_token(self, session) -> Optional[str]:
         """Get valid access token from session cache"""
+        user = SessionService.get_user(session) or {}
+        if not user.get("oid") or not user.get("tid"):
+            return None
         cache = self._load_cache(session)
-        msal = self._msal_app(cache)
+        msal = self._msal_app(cache, tenant=user['tid'])
         accounts = msal.get_accounts()
         
-        user = SessionService.get_user(session) or {}
-        account = next((a for a in accounts if a.get("local_account_id") == user.get("oid") and a.get("realm") == user.get("tid")), None)
-        if not account or not user.get("oid") or not user.get("tid"):
+        # MSAL 1.31 caches an /organizations code exchange under that generic
+        # realm. Bind the object ID, then acquire explicitly from the validated
+        # ID-token tenant rather than treating the cache realm as the issuer.
+        allowed_realms = {user.get("tid"), "organizations", "common"}
+        account = next((a for a in accounts if a.get("local_account_id") == user.get("oid") and a.get("realm") in allowed_realms), None)
+        if not account:
             return None
         result = msal.acquire_token_silent(self.scopes, account=account)
         self._save_cache(session, cache)
