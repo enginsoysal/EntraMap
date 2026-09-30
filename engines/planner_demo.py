@@ -22,6 +22,7 @@ def lab(name):
     replacement = deepcopy(result)
     replacement['group'] = {'id': 'demo-target', 'displayName': 'New workforce', 'groupTypes': [], 'securityEnabled': True}
     replacement['domains'][0]['findings'][0].update(new)
+    replacement['domains'][0]['findings'][0]['evidence']['relationship'] = new['impact']
     replacement['membership']['ids'] = ['demo-user-1', 'demo-user-3']
     after = deepcopy(result)
     after['domains'][0]['findings'] = []

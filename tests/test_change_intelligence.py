@@ -28,6 +28,8 @@ class ComparisonTests(unittest.TestCase):
                 fixture = lab(name)
                 r = compare(fixture['before'], fixture['replacement'], 'replacement')
                 self.assertEqual(r['counts'], {'changed': 1})
+                finding = r['rows'][0]['after'][0]
+                self.assertEqual(finding['evidence']['relationship'], finding['impact'])
 
     def test_verification_detects_removed(self):
         f = lab('application')
