@@ -725,8 +725,9 @@ class GroupImpactEngine:
             if domain.get("status") != "ok" or domain.get("count", 0) > 0:
                 continue
             beta_domain = collectors[idx](group_id, token, "https://graph.microsoft.com/beta")
-            if beta_domain.get("status") == "ok" and beta_domain.get("count", 0) > 0:
-                domains[idx] = beta_domain
+            # Once attempted, beta is part of this domain's collection scope.
+            # Keep its failures and partial findings instead of claiming an empty success.
+            domains[idx] = beta_domain
 
         return domains
 
@@ -1345,9 +1346,7 @@ class GroupImpactEngine:
 
         intune_impact = GroupImpactEngine._collect_intune_impact_from_base(group_id, token, "https://graph.microsoft.com/v1.0")
         if intune_impact.get("status") == "ok" and intune_impact.get("count", 0) == 0:
-            beta_intune = GroupImpactEngine._collect_intune_impact_from_base(group_id, token, "https://graph.microsoft.com/beta")
-            if beta_intune.get("status") == "ok" and beta_intune.get("count", 0) > 0:
-                intune_impact = beta_intune
+            intune_impact = GroupImpactEngine._collect_intune_impact_from_base(group_id, token, "https://graph.microsoft.com/beta")
         domains.insert(1, intune_impact)
         domains[2:2] = GroupImpactEngine._collect_intune_policy_domains(group_id, token)
 

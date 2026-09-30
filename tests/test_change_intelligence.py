@@ -1,6 +1,7 @@
 import os
 import unittest
 from copy import deepcopy
+from contextlib import ExitStack
 from unittest.mock import Mock, patch
 
 os.environ.setdefault('CLIENT_ID', 'test-client')
@@ -179,6 +180,33 @@ class GraphTests(unittest.TestCase):
 
     def test_cache_uses_full_token_hash(self):
         self.assertEqual(len(GraphService._cache_key('/groups','token').split(':')[-1]),64)
+
+    def test_beta_policy_failure_is_not_discarded(self):
+        names = ('device_configuration', 'settings_catalog', 'admin_template', 'compliance', 'app_protection', 'app_configuration', 'script')
+        methods = [f'_collect_intune_{n}_impact' for n in names] + ['_collect_autopilot_enrollment_impact', '_collect_cloud_pc_impact']
+        def collect(group, token, base):
+            return {'key': 'policy', 'status': 'partial' if base.endswith('beta') else 'ok', 'count': 0, 'findings': []}
+        with ExitStack() as stack:
+            for method in methods: stack.enter_context(patch.object(GroupImpactEngine, method, side_effect=collect))
+            domains = GroupImpactEngine._collect_intune_policy_domains('g', 'token')
+        self.assertEqual(len(domains), 9)
+        self.assertTrue(all(d['status'] == 'partial' for d in domains))
+
+    def test_beta_app_partial_findings_survive_full_report(self):
+        methods = ('ca', 'enterprise_app', 'iam', 'pim', 'administrative_unit', 'group_nesting', 'group_licensing', 'entitlement_management', 'm365_workload', 'exchange_workload')
+        def collect(group, token, base):
+            return {'key': 'intune_apps', 'status': 'partial' if base.endswith('beta') else 'ok', 'count': 1 if base.endswith('beta') else 0, 'findings': [{'id':'app'}] if base.endswith('beta') else []}
+        with ExitStack() as stack:
+            stack.enter_context(patch.object(GraphService, 'get', return_value={'id':'g'}))
+            for method in methods: stack.enter_context(patch.object(GroupImpactEngine, f'_collect_{method}_impact', return_value={'key':method,'status':'ok','count':0,'findings':[]}))
+            stack.enter_context(patch.object(GroupImpactEngine, '_collect_intune_policy_domains', return_value=[]))
+            stack.enter_context(patch.object(GroupImpactEngine, '_collect_intune_impact_from_base', side_effect=collect))
+            result, error = GroupImpactEngine.build('g','token')
+        self.assertIsNone(error)
+        domain = next(d for d in result['domains'] if d['key']=='intune_apps')
+        self.assertEqual(domain['status'], 'partial')
+        self.assertEqual(domain['findings'], [{'id':'app'}])
+        self.assertEqual(result['summary']['partialDomains'], 1)
 
 
 class IdentityTests(unittest.TestCase):
