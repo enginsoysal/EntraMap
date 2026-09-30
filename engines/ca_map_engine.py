@@ -10,7 +10,8 @@ PERFORMANCE OPTIMIZATIONS:
 
 from typing import Tuple, List, Dict
 from services.graph_service import GraphService
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import as_completed
+from services.scan_service import ThreadPoolExecutor
 
 
 class CAMapEngine:
@@ -102,7 +103,7 @@ class CAMapEngine:
                         _, _, obj_data = result
                         if not obj_data:
                             continue
-                        add_node({"id": obj_data["id"], "label": obj_data.get("displayName", "App"), "type": "app", "data": CAMapEngine._clean(obj_data)})
+                        add_node({"id": obj_data["id"], "label": obj_data.get("displayName", "App"), "type": "enterprise_app", "data": CAMapEngine._clean(obj_data)})
                         edges.append(
                             {
                                 "source": obj_data["id"],

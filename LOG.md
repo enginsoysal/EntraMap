@@ -1,5 +1,17 @@
 # Change Log
 
+## 0.6.0 - 2026-09-30
+
+- Introduced Change Planner with signed baseline/replacement/verification snapshots.
+- Added semantic assignment and direct membership comparisons, with explicit unknown states.
+- Added HTML/JSON change dossiers and allowlisted pseudonymized exports.
+- Added three synthetic community labs available without sign-in.
+- Recorded Graph collection errors and scan limits across concurrent collectors; fresh scans bypass caches.
+- Corrected account selection, Intune exclusions, enterprise app navigation and indirect membership semantics.
+- Canonicalized public sign-in entry pages to prevent OAuth state mismatches from the Azure hosting alias.
+- Replaced checklist-based deletion approval with fresh-scan guidance.
+- Added regression tests and enforced them in pull request and deployment validation.
+
 ## 0.5.6 - 2026-06-17
 
 - Bumped application version to 0.5.6

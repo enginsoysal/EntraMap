@@ -80,7 +80,7 @@ class AppMapEngine:
             target = assignment.get("target", {})
             target_type = target.get("@odata.type", "")
 
-            if "groupAssignmentTarget" in target_type:
+            if "groupassignmenttarget" in target_type.lower():
                 group_id = target.get("groupId")
                 if not group_id:
                     continue

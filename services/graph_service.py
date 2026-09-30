@@ -13,7 +13,10 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from typing import Optional, Dict, Any, List
-from functools import lru_cache
+from copy import deepcopy
+from threading import RLock
+from urllib.parse import urlparse, urlencode
+from services.scan_service import record, is_fresh
 import time
 
 
@@ -55,6 +58,8 @@ class GraphService:
 
     # Simple result cache: (endpoint, token_hash) -> result
     # Token hash used to avoid storing full tokens in memory
+    _lock = RLock()
+    _MAX_CACHE = 2048
     _cache = {}
     _cache_times = {}
     _CACHE_TTL = 5 * 60  # 5 minute cache for Graph results
@@ -63,7 +68,7 @@ class GraphService:
     def _cache_key(endpoint: str, token: str) -> str:
         """Generate cache key (use token hash, not full token)."""
         import hashlib
-        token_hash = hashlib.sha256(token.encode()).hexdigest()[:8]
+        token_hash = hashlib.sha256(token.encode()).hexdigest()
         return f"{endpoint}:{token_hash}"
 
     @staticmethod
@@ -73,37 +78,41 @@ class GraphService:
         Returns dict on success, None on 404, or error dict on failure.
         Uses connection pooling and caching.
         """
-        # Check cache first (except for paginated requests)
-        cache_key = GraphService._cache_key(endpoint, token)
-        now = time.time()
-        if cache_key in GraphService._cache:
-            cache_time = GraphService._cache_times.get(cache_key, 0)
-            if now - cache_time < GraphService._CACHE_TTL:
-                return GraphService._cache[cache_key]
-        
-        headers = {"Authorization": f"Bearer {token}"}
-        if extra_headers:
-            headers.update(extra_headers)
-        
-        # Keep-alive is automatic with session reuse
         url = endpoint if endpoint.startswith("http") else f"{GRAPH_BASE}{endpoint}"
+        parsed = urlparse(url)
+        if parsed.scheme != "https" or parsed.netloc != "graph.microsoft.com":
+            record(endpoint, "error", reason="Untrusted Graph endpoint")
+            return {"error": "endpoint", "message": "Untrusted Graph endpoint"}
+        cache_key = GraphService._cache_key(url + str(sorted((extra_headers or {}).items())), token)
+        now = time.time()
+        with GraphService._lock:
+            if not is_fresh() and now - GraphService._cache_times.get(cache_key, 0) < GraphService._CACHE_TTL and cache_key in GraphService._cache:
+                record(url, "ok", cached=True)
+                return deepcopy(GraphService._cache[cache_key])
+        headers = {"Authorization": f"Bearer {token}", **(extra_headers or {})}
         try:
-            session = _get_session()
-            # Shorter timeout for fast-fail behavior
-            resp = session.get(url, headers=headers, timeout=(5, 15))
-        except requests.RequestException as exc:
-            return {"error": "network", "message": str(exc)}
-        
-        # Process response
-        if resp.status_code == 200:
-            result = resp.json()
-            # Cache successful responses
-            GraphService._cache[cache_key] = result
-            GraphService._cache_times[cache_key] = now
-            return result
-        if resp.status_code == 404:
-            return None
-        return {"error": resp.status_code, "message": resp.text[:500]}
+            resp = _get_session().get(url, headers=headers, timeout=(5, 15), allow_redirects=False)
+            if resp.status_code == 200:
+                result = resp.json()
+                if not isinstance(result, dict):
+                    raise ValueError("Expected Graph object")
+                with GraphService._lock:
+                    if len(GraphService._cache) >= GraphService._MAX_CACHE:
+                        oldest = min(GraphService._cache_times, key=GraphService._cache_times.get)
+                        GraphService._cache.pop(oldest, None)
+                        GraphService._cache_times.pop(oldest, None)
+                    GraphService._cache[cache_key] = deepcopy(result)
+                    GraphService._cache_times[cache_key] = now
+                record(url, "ok", cached=False)
+                return result
+            if resp.status_code == 404:
+                record(url, "not_found")
+                return None
+            record(url, "error", code=resp.status_code)
+            return {"error": resp.status_code, "message": resp.text[:500]}
+        except (requests.RequestException, ValueError) as exc:
+            record(url, "error", reason=type(exc).__name__)
+            return {"error": "network", "message": "Graph request failed or returned invalid JSON"}
 
     @staticmethod
     def get_all(endpoint: str, token: str, extra_headers: Optional[Dict] = None, 
@@ -117,9 +126,15 @@ class GraphService:
         results = []
         url = endpoint if endpoint.startswith("http") else f"{GRAPH_BASE}{endpoint}"
         
+        visited = set()
         while url and len(results) < max_items:
+            if url in visited:
+                record(endpoint, "error", reason="Repeated pagination link")
+                break
+            visited.add(url)
             data = GraphService.get(url, token, extra_headers)
-            if not data or "value" not in data:
+            if not data or not isinstance(data.get("value"), list):
+                record(endpoint, "missing" if data is None else "error", reason="Collection could not be fully read")
                 break
             
             # Get only items we need (early stopping)
@@ -128,6 +143,8 @@ class GraphService:
             
             # Stop if we have enough or no more pages
             if len(results) >= max_items:
+                if data.get("@odata.nextLink") or len(data["value"]) > items_needed:
+                    record(endpoint, "truncated", limit=max_items)
                 break
             
             url = data.get("@odata.nextLink")
@@ -139,15 +156,12 @@ class GraphService:
         """Build Graph endpoint URL with query parameters."""
         url = f"{GRAPH_BASE}{base_path}"
         if params:
-            query_parts = []
-            for k, v in params.items():
-                query_parts.append(f"{k}={v}")
-            if query_parts:
-                url += "?" + "&".join(query_parts)
+            url += "?" + urlencode(params)
         return url
 
     @staticmethod
     def clear_cache():
         """Clear the results cache (useful for testing or forcing refresh)."""
-        GraphService._cache.clear()
-        GraphService._cache_times.clear()
+        with GraphService._lock:
+            GraphService._cache.clear()
+            GraphService._cache_times.clear()

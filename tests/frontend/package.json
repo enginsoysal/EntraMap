@@ -1,0 +1,5 @@
+{
+  "private": true,
+  "scripts": {"test": "node --test planner.test.cjs"},
+  "devDependencies": {"jsdom": "26.1.0"}
+}

@@ -5,11 +5,13 @@ Builds a deletion-impact summary for a group across key Entra/Intune domains.
 This is intentionally isolated from map engines so existing graph behavior remains unchanged.
 """
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import as_completed
+from services.scan_service import ThreadPoolExecutor
 from datetime import datetime, timezone
 from typing import Dict, List, Tuple, Any
 
 from services.graph_service import GraphService
+from services.scan_service import traced_domain, record
 
 
 class GroupImpactEngine:
@@ -55,11 +57,11 @@ class GroupImpactEngine:
                 "safeToDelete": False,
             }
         return {
-            "riskLevel": "safe",
-            "riskLabel": "Safe",
+            "riskLevel": "review",
+            "riskLabel": "Review complete",
             "riskScore": 0,
             "recommendation": "No direct dependencies were detected in the checked domains.",
-            "safeToDelete": True,
+            "safeToDelete": False,
         }
 
     @staticmethod
@@ -81,9 +83,7 @@ class GroupImpactEngine:
         if not err or "error" not in err:
             return False
         msg = str(err.get("message", "")).lower()
-        return ("<html" in msg or "<title>" in msg) or any(k in msg for k in [
-            "resource not found for the segment", "not found for segment",
-            "does not exist or one of its queried reference-property",
+        return any(k in msg for k in [
             "the feature is not available for this account",
             "tenant does not have a license",
         ])
@@ -154,11 +154,13 @@ class GroupImpactEngine:
                     "impact": impact,
                     "severity": "warning" if impact == "excluded_scope" else "blocker",
                     "targetType": target_type,
+                    "assignment": {"intent": assignment.get("intent"), "settings": assignment.get("settings"), "filterId": target.get("deviceAndAppManagementAssignmentFilterId"), "filterType": target.get("deviceAndAppManagementAssignmentFilterType")},
                 }
             )
         return hits
 
     @staticmethod
+    @traced_domain
     def _collect_assignment_domain_impact(
         group_id: str,
         token: str,
@@ -221,6 +223,7 @@ class GroupImpactEngine:
                     {
                         "id": hit.get("id", ""),
                         "name": item_name,
+                        "assignment": hit.get("assignment", {}),
                         "impact": hit.get("impact", "included_scope"),
                         "severity": hit.get("severity", "blocker"),
                         "resourceId": item_id,
@@ -233,8 +236,8 @@ class GroupImpactEngine:
             for future in as_completed(futures):
                 try:
                     findings.extend(future.result())
-                except Exception:
-                    pass
+                except Exception as exc:
+                    record("collector", "error", reason=type(exc).__name__)
 
         return {
             "key": key,
@@ -245,6 +248,7 @@ class GroupImpactEngine:
         }
 
     @staticmethod
+    @traced_domain
     def _collect_ca_impact(group_id: str, token: str) -> Dict:
         ok, err = GroupImpactEngine._probe(
             "/identity/conditionalAccess/policies?$select=id&$top=1",
@@ -302,6 +306,7 @@ class GroupImpactEngine:
         }
 
     @staticmethod
+    @traced_domain
     def _collect_enterprise_app_impact(group_id: str, token: str) -> Dict:
         ok, err = GroupImpactEngine._probe(
             f"/groups/{group_id}/appRoleAssignments?$top=1",
@@ -340,8 +345,8 @@ class GroupImpactEngine:
                     rid, sp = future.result()
                     if sp and "error" not in sp:
                         sp_cache[rid] = sp
-                except Exception:
-                    pass
+                except Exception as exc:
+                    record("collector", "error", reason=type(exc).__name__)
 
         findings = []
         for assignment in assignments:
@@ -354,6 +359,7 @@ class GroupImpactEngine:
                     "impact": "app_role_assignment",
                     "severity": "warning",
                     "resourceId": rid,
+                    "appRoleId": assignment.get("appRoleId"),
                     "publisher": sp.get("publisherName", "") if sp else "",
                 }
             )
@@ -367,10 +373,12 @@ class GroupImpactEngine:
         }
 
     @staticmethod
+    @traced_domain
     def _collect_intune_impact(group_id: str, token: str) -> Dict:
         return GroupImpactEngine._collect_intune_impact_from_base(group_id, token, "https://graph.microsoft.com/v1.0")
 
     @staticmethod
+    @traced_domain
     def _collect_intune_impact_from_base(group_id: str, token: str, base_url: str) -> Dict:
         ok, err = GroupImpactEngine._probe(
             f"{base_url}/deviceAppManagement/mobileApps?$select=id&$top=1",
@@ -413,6 +421,8 @@ class GroupImpactEngine:
                     {
                         "id": assignment.get("id", ""),
                         "name": app.get("displayName", "Intune App"),
+                        "resourceId": app["id"],
+                        "assignment": {"intent": assignment.get("intent"), "settings": assignment.get("settings"), "filterId": target.get("deviceAndAppManagementAssignmentFilterId"), "filterType": target.get("deviceAndAppManagementAssignmentFilterType")},
                         "impact": impact,
                         "severity": "warning" if impact == "excluded_scope" else "blocker",
                         "publisher": app.get("publisher", ""),
@@ -425,8 +435,8 @@ class GroupImpactEngine:
             for future in as_completed(futures):
                 try:
                     findings.extend(future.result())
-                except Exception:
-                    pass
+                except Exception as exc:
+                    record("collector", "error", reason=type(exc).__name__)
 
         return {
             "key": "intune_apps",
@@ -437,6 +447,7 @@ class GroupImpactEngine:
         }
 
     @staticmethod
+    @traced_domain
     def _collect_intune_device_configuration_impact(group_id: str, token: str, base_url: str) -> Dict:
         return GroupImpactEngine._collect_assignment_domain_impact(
             group_id,
@@ -453,6 +464,7 @@ class GroupImpactEngine:
         )
 
     @staticmethod
+    @traced_domain
     def _collect_intune_settings_catalog_impact(group_id: str, token: str, base_url: str) -> Dict:
         return GroupImpactEngine._collect_assignment_domain_impact(
             group_id,
@@ -469,6 +481,7 @@ class GroupImpactEngine:
         )
 
     @staticmethod
+    @traced_domain
     def _collect_intune_admin_template_impact(group_id: str, token: str, base_url: str) -> Dict:
         return GroupImpactEngine._collect_assignment_domain_impact(
             group_id,
@@ -485,6 +498,7 @@ class GroupImpactEngine:
         )
 
     @staticmethod
+    @traced_domain
     def _collect_intune_compliance_impact(group_id: str, token: str, base_url: str) -> Dict:
         return GroupImpactEngine._collect_assignment_domain_impact(
             group_id,
@@ -501,6 +515,7 @@ class GroupImpactEngine:
         )
 
     @staticmethod
+    @traced_domain
     def _collect_intune_app_protection_impact(group_id: str, token: str, base_url: str) -> Dict:
         return GroupImpactEngine._collect_assignment_domain_impact(
             group_id,
@@ -517,6 +532,7 @@ class GroupImpactEngine:
         )
 
     @staticmethod
+    @traced_domain
     def _collect_intune_app_configuration_impact(group_id: str, token: str, base_url: str) -> Dict:
         return GroupImpactEngine._collect_assignment_domain_impact(
             group_id,
@@ -533,6 +549,7 @@ class GroupImpactEngine:
         )
 
     @staticmethod
+    @traced_domain
     def _collect_intune_script_impact(group_id: str, token: str, base_url: str) -> Dict:
         script_domain = GroupImpactEngine._collect_assignment_domain_impact(
             group_id,
@@ -584,6 +601,7 @@ class GroupImpactEngine:
         }
 
     @staticmethod
+    @traced_domain
     def _collect_autopilot_enrollment_impact(group_id: str, token: str, base_url: str) -> Dict:
         autopilot_domain = GroupImpactEngine._collect_assignment_domain_impact(
             group_id,
@@ -635,6 +653,7 @@ class GroupImpactEngine:
         }
 
     @staticmethod
+    @traced_domain
     def _collect_cloud_pc_impact(group_id: str, token: str, base_url: str) -> Dict:
         provisioning_domain = GroupImpactEngine._collect_assignment_domain_impact(
             group_id,
@@ -712,6 +731,7 @@ class GroupImpactEngine:
         return domains
 
     @staticmethod
+    @traced_domain
     def _collect_iam_impact(group_id: str, token: str) -> Dict:
         ok, err = GroupImpactEngine._probe(
             "/roleManagement/directory/roleAssignments?$top=1",
@@ -755,6 +775,7 @@ class GroupImpactEngine:
                     "name": get_role_name(role_definition_id) if role_definition_id else "Directory Role",
                     "impact": "role_assignment",
                     "severity": "blocker",
+                    "resourceId": role_definition_id,
                     "directoryScopeId": assignment.get("directoryScopeId", ""),
                     "appScopeId": assignment.get("appScopeId", ""),
                 }
@@ -769,6 +790,7 @@ class GroupImpactEngine:
         }
 
     @staticmethod
+    @traced_domain
     def _collect_pim_impact(group_id: str, token: str) -> Dict:
         ok_schedule, err_schedule = GroupImpactEngine._probe(
             "/roleManagement/directory/roleEligibilitySchedules?$top=1",
@@ -818,6 +840,7 @@ class GroupImpactEngine:
                     "name": get_role_name(role_definition_id) if role_definition_id else "Directory Role",
                     "impact": "eligible_role_assignment",
                     "severity": "warning",
+                    "resourceId": role_definition_id,
                     "directoryScopeId": item.get("directoryScopeId", ""),
                     "statusText": item.get("status", ""),
                 }
@@ -836,6 +859,7 @@ class GroupImpactEngine:
                     "name": get_role_name(role_definition_id) if role_definition_id else "Directory Role",
                     "impact": "active_pim_assignment",
                     "severity": "blocker",
+                    "resourceId": role_definition_id,
                     "directoryScopeId": item.get("directoryScopeId", ""),
                     "assignmentType": item.get("assignmentType", ""),
                 }
@@ -850,6 +874,7 @@ class GroupImpactEngine:
         }
 
     @staticmethod
+    @traced_domain
     def _collect_administrative_unit_impact(group_id: str, token: str) -> Dict:
         ok, err = GroupImpactEngine._probe(
             "/directory/administrativeUnits?$select=id&$top=1",
@@ -895,8 +920,8 @@ class GroupImpactEngine:
                     hit = future.result()
                     if hit:
                         findings.append(hit)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    record("collector", "error", reason=type(exc).__name__)
 
         return {
             "key": "administrative_units",
@@ -907,6 +932,7 @@ class GroupImpactEngine:
         }
 
     @staticmethod
+    @traced_domain
     def _collect_group_nesting_impact(group_id: str, token: str) -> Dict:
         ok_parents, err_parents = GroupImpactEngine._probe(
             f"/groups/{group_id}/transitiveMemberOf?$select=id&$top=1",
@@ -975,6 +1001,7 @@ class GroupImpactEngine:
         }
 
     @staticmethod
+    @traced_domain
     def _collect_group_licensing_impact(group_id: str, token: str) -> Dict:
         group = GraphService.get(
             f"/groups/{group_id}?$select=id,displayName,assignedLicenses",
@@ -1026,6 +1053,7 @@ class GroupImpactEngine:
                     "id": sku_id,
                     "name": sku_name,
                     "impact": "group_license_assignment",
+                    "disabledPlans": sorted(lic.get("disabledPlans", [])),
                     "severity": "blocker",
                 }
             )
@@ -1040,6 +1068,7 @@ class GroupImpactEngine:
         }
 
     @staticmethod
+    @traced_domain
     def _collect_entitlement_management_impact(group_id: str, token: str) -> Dict:
         ok, err = GroupImpactEngine._probe(
             "/identityGovernance/entitlementManagement/assignmentPolicies?$select=id&$top=1",
@@ -1082,6 +1111,7 @@ class GroupImpactEngine:
         }
 
     @staticmethod
+    @traced_domain
     def _collect_m365_workload_impact(group_id: str, token: str) -> Dict:
         group = GraphService.get(
             f"/groups/{group_id}?$select=id,displayName,groupTypes,mailEnabled,resourceProvisioningOptions",
@@ -1097,6 +1127,9 @@ class GroupImpactEngine:
                 "findings": [],
                 "details": err.get("message", "Unable to read M365 workload footprint."),
             }
+
+        if "Unified" not in group.get("groupTypes", []):
+            return {"key": "m365_workloads", "label": "M365 Workloads", "status": "ok", "count": 0, "findings": [], "applicability": "not_applicable", "details": "This is not a Microsoft 365 group."}
 
         findings = []
         access_issues = []
@@ -1191,9 +1224,10 @@ class GroupImpactEngine:
         }
 
     @staticmethod
+    @traced_domain
     def _collect_exchange_workload_impact(group_id: str, token: str) -> Dict:
         group = GraphService.get(
-            f"/groups/{group_id}?$select=id,displayName,mailEnabled,proxyAddresses",
+            f"/groups/{group_id}?$select=id,displayName,mailEnabled,proxyAddresses,groupTypes",
             token,
         )
         if not group or "error" in group:
@@ -1206,6 +1240,9 @@ class GroupImpactEngine:
                 "findings": [],
                 "details": err.get("message", "Unable to read Exchange workload footprint."),
             }
+
+        if "Unified" not in group.get("groupTypes", []):
+            return {"key": "exchange_workloads", "label": "Exchange Workloads", "status": "partial" if group.get("mailEnabled") else "ok", "count": 0, "findings": [], "details": "Mail-enabled non-M365 groups require Exchange administration review." if group.get("mailEnabled") else "No Microsoft 365 group mailbox applies."}
 
         findings = []
         access_issues = []
@@ -1287,7 +1324,7 @@ class GroupImpactEngine:
         Returns: (result, error_dict_or_none)
         """
         group = GraphService.get(
-            f"/groups/{group_id}?$select=id,displayName,description,groupTypes,securityEnabled,mailEnabled",
+            f"/groups/{group_id}?$select=id,displayName,description,groupTypes,securityEnabled,mailEnabled,membershipRule,isAssignableToRole,onPremisesSyncEnabled",
             token,
         )
         if not group or "error" in group:
@@ -1366,7 +1403,7 @@ class GroupImpactEngine:
                 "domainsWithHits": domains_with_hits,
                 "partialDomains": partial_domains,
                 "coverageScore": coverage_score,
-                "confidence": "high" if coverage_score >= 90 else "medium" if coverage_score >= 70 else "low",
+                "confidence": "complete within scope" if partial_domains == 0 else "partial",
                 "completeness": {
                     "domainsTotal": len(domains),
                     "domainsOk": ok_domains,
