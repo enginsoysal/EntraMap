@@ -11,7 +11,8 @@ PERFORMANCE OPTIMIZATIONS:
 
 from typing import Tuple, List, Dict, Set
 from services.graph_service import GraphService
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import as_completed
+from services.scan_service import ThreadPoolExecutor
 import time
 
 
@@ -59,7 +60,7 @@ class UserMapEngine:
                     for assignment in assignments:
                         target = assignment.get("target", {})
                         target_type = target.get("@odata.type", "")
-                        if "groupAssignmentTarget" not in target_type:
+                        if "groupassignmenttarget" not in target_type.lower():
                             continue
 
                         group_id = target.get("groupId")
@@ -135,6 +136,8 @@ class UserMapEngine:
                     edges.append({"source": user["id"], "target": dev["id"], "label": rel_label})
 
         # User groups
+        direct_memberships = GraphService.get_all(f"/users/{user_id}/memberOf?$select=id", token, max_items=400)
+        direct_ids = {m["id"] for m in direct_memberships}
         group_ids = []
         for m in GraphService.get_all(
             f"/users/{user_id}/transitiveMemberOf?$select=id,displayName,description,groupTypes,securityEnabled,mailEnabled",
@@ -151,7 +154,7 @@ class UserMapEngine:
                 continue
             group_ids.append(m["id"])
             add_node({"id": m["id"], "label": m.get("displayName", "Group"), "type": "group", "data": UserMapEngine._clean(m)})
-            edges.append({"source": user["id"], "target": m["id"], "label": "member of"})
+            edges.append({"source": user["id"], "target": m["id"], "label": "member of" if m["id"] in direct_ids else "indirect member of"})
 
         # Group Intune apps
         intune_app_index = UserMapEngine._get_intune_app_index(
@@ -174,8 +177,10 @@ class UserMapEngine:
                     edges.append({"source": gid, "target": app_obj["id"], "label": app_link["edge_label"]})
 
         # Service principals from group assignments (concurrent fetching)
-        all_assignments = []
+        all_assignments = [(user_id, a) for a in GraphService.get_all(f"/users/{user_id}/appRoleAssignments", token, max_items=400) if a.get("principalId") == user_id]
         for gid in group_ids:
+            if gid not in direct_ids:
+                continue
             assignments = GraphService.get_all(f"/groups/{gid}/appRoleAssignments", token, max_items=100)
             for assignment in assignments:
                 all_assignments.append((gid, assignment))
@@ -212,9 +217,9 @@ class UserMapEngine:
             if sp_id and sp_id in sp_cache:
                 sp = sp_cache[sp_id]
                 if sp_id not in node_ids:
-                    add_node({"id": sp["id"], "label": sp.get("displayName", "App"), "type": "app", "data": UserMapEngine._clean(sp)})
+                    add_node({"id": sp["id"], "label": sp.get("displayName", "App"), "type": "enterprise_app", "data": UserMapEngine._clean(sp)})
                 if not any(e["source"] == gid and e["target"] == sp_id for e in edges):
-                    edges.append({"source": gid, "target": sp_id, "label": "access to"})
+                    edges.append({"source": gid, "target": sp_id, "label": "app role assigned"})
 
         # CA policies
         for policy in GraphService.get_all(
@@ -230,9 +235,9 @@ class UserMapEngine:
             exc_groups = u_cond.get("excludeGroups", [])
             included = "All" in inc_users or user["id"] in inc_users or any(g in inc_groups for g in group_ids)
             excluded = user["id"] in exc_users or any(g in exc_groups for g in group_ids)
-            if included and not excluded:
+            if included or excluded:
                 add_node({"id": policy["id"], "label": policy.get("displayName", "CA Policy"), "type": "ca_policy", "data": UserMapEngine._clean(policy)})
-                edges.append({"source": user["id"], "target": policy["id"], "label": "affected by"})
+                edges.append({"source": user["id"], "target": policy["id"], "label": "excluded from" if excluded else "in policy scope"})
 
         return nodes, edges, None
 

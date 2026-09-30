@@ -110,10 +110,11 @@ class AuthEngine:
         msal = self._msal_app(cache)
         accounts = msal.get_accounts()
         
-        if not accounts:
+        user = SessionService.get_user(session) or {}
+        account = next((a for a in accounts if a.get("local_account_id") == user.get("oid") and a.get("realm") == user.get("tid")), None)
+        if not account or not user.get("oid") or not user.get("tid"):
             return None
-        
-        result = msal.acquire_token_silent(self.scopes, account=accounts[0])
+        result = msal.acquire_token_silent(self.scopes, account=account)
         self._save_cache(session, cache)
         
         if result and "access_token" in result:

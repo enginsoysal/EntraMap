@@ -1,12 +1,14 @@
 "use strict";
 
-const APP_CONTEXT = window.APP_CONTEXT || { signedIn: false, version: "0.5.6" };
+const APP_CONTEXT = window.APP_CONTEXT || { signedIn: false, version: "0.6.0" };
 
 const TYPE_META = {
     user: { label: "User", icon: "fa-user" },
     group: { label: "Group", icon: "fa-users" },
     device: { label: "Device", icon: "fa-laptop" },
-    app: { label: "Application", icon: "fa-cube" },
+    app: { label: "Intune app", icon: "fa-cube" },
+    enterprise_app: { label: "Enterprise application", icon: "fa-building" },
+    impact_resource: { label: "Dependency", icon: "fa-link" },
     ca_policy: { label: "CA Policy", icon: "fa-shield-halved" },
 };
 
@@ -1838,7 +1840,7 @@ function buildCyStyle() {
         { selector: "node[type='user']", style: { "background-color": "#0f2040", "border-color": "#3b82f6", "border-width": 3, width: 60, height: 60, "font-size": "11px", color: "#93c5fd", "font-weight": 700 } },
         { selector: "node[type='group']", style: { "background-color": "#2a1800", "border-color": "#f59e0b", shape: "diamond", width: 54, height: 54 } },
         { selector: "node[type='device']", style: { "background-color": "#062620", "border-color": "#10b981", shape: "round-rectangle" } },
-        { selector: "node[type='app']", style: { "background-color": "#1d0a40", "border-color": "#8b5cf6", shape: "hexagon" } },
+        { selector: "node[type='app'], node[type='enterprise_app']", style: { "background-color": "#1d0a40", "border-color": "#8b5cf6", shape: "hexagon" } },
         { selector: "node[type='ca_policy']", style: { "background-color": "#2a0a0a", "border-color": "#ef4444", shape: "tag", width: 54, height: 54 } },
         { selector: "node[impactNode = 1]", style: { "border-width": 3, "text-outline-width": 2, "text-outline-color": "#0b0d16", "font-size": "10px" } },
         { selector: "node[impactSeverity='blocker']", style: { "border-color": "#ef4444", "background-color": "#2f0c12", color: "#fecaca" } },
@@ -2081,7 +2083,7 @@ function updateInsights(data) {
         ["Unmanaged", unmanaged],
         ["Non-compliant", nonCompliant],
         ["CA policies", nodes.filter(node => node.type === "ca_policy").length],
-        ["Apps", nodes.filter(node => node.type === "app").length],
+        ["Apps", nodes.filter(node => ["app", "enterprise_app"].includes(node.type)).length],
     ];
 
     kpiWrap.innerHTML = kpis.map(([label, value]) => `
@@ -2121,7 +2123,7 @@ function renderRelationshipRail(nodeId) {
         return;
     }
 
-    const grouped = { user: [], group: [], device: [], app: [], ca_policy: [] };
+    const grouped = Object.fromEntries(Object.keys(TYPE_META).map(type => [type, []]));
     node.connectedEdges().forEach(edge => {
         const other = edge.source().id() === node.id() ? edge.target() : edge.source();
         if (!other || !other.length) return;
@@ -2136,7 +2138,7 @@ function renderRelationshipRail(nodeId) {
         });
     });
 
-    const order = ["user", "group", "device", "app", "ca_policy"];
+    const order = ["user", "group", "device", "app", "enterprise_app", "ca_policy", "impact_resource"];
     groupsWrap.innerHTML = order
         .filter(type => grouped[type].length)
         .map(type => {
@@ -2249,7 +2251,7 @@ async function loadMap(objectType, objectId) {
     showEmptyState(false);
 
     try {
-        const response = await fetch(`/api/map/${objectType}/${objectId}`);
+        const response = await fetch(`/api/map/${objectType}/${objectId}?fresh=1`);
         const data = await response.json();
         if (!response.ok) {
             showToast(data.error || "Failed to load data", "error");
@@ -2308,7 +2310,7 @@ async function loadGroupImpactMap(groupId) {
     showEmptyState(false);
 
     try {
-        const response = await fetch(`/api/map/group/${groupId}/impact`);
+        const response = await fetch(`/api/map/group/${groupId}/impact?fresh=1`);
         const data = await response.json();
         if (!response.ok) {
             showToast(data.error || "Failed to load impact graph", "error");
@@ -2807,7 +2809,7 @@ async function compareGroupMaps(groupId) {
 function handleNodeDoubleTap(node) {
     const type = node.data("type");
     const id = node.id();
-    if (["user", "group", "device", "app", "ca_policy"].includes(type)) {
+    if (["user", "group", "device", "app", "enterprise_app", "ca_policy"].includes(type)) {
         showToast(`Drill-down: loading ${type} structure`, "info");
         loadMap(type, id);
         return;
@@ -2920,6 +2922,7 @@ function getPortalUrl(type, id) {
         user: `https://entra.microsoft.com/#view/Microsoft_AAD_UsersAndTenants/UserProfileMenuBlade/~/overview/userId/${id}`,
         group: `https://entra.microsoft.com/#view/Microsoft_AAD_IAM/GroupDetailsMenuBlade/~/Overview/groupId/${id}`,
         device: `https://entra.microsoft.com/#view/Microsoft_AAD_Devices/DeviceDetailsMenuBlade/~/Overview/objectId/${id}`,
+        enterprise_app: `https://entra.microsoft.com/#view/Microsoft_AAD_IAM/ManagedAppMenuBlade/~/Overview/objectId/${id}`,
         app: "https://intune.microsoft.com/#view/Microsoft_Intune_Apps/AppsMenu/~/allApps",
         ca_policy: `https://entra.microsoft.com/#view/Microsoft_AAD_ConditionalAccess/ConditionalAccessBlade/~/Policies/policyId/${id}`,
     };
@@ -2967,7 +2970,7 @@ function getImpactStatusMeta(summary) {
     if (summary.partialDomains > 0) {
         return { label: "Partial", className: "partial" };
     }
-    return { label: summary.riskLabel || "Safe", className: "safe" };
+    return { label: summary.riskLabel || "Review required", className: "safe" };
 }
 
 function renderGroupImpactLoading() {
@@ -3237,7 +3240,7 @@ function getDomainChecklist(domainKey, domain) {
 }
 
 function getExecutiveDecision(summary) {
-    const level = String(summary?.riskLevel || "safe");
+    const level = String(summary?.riskLevel || "caution");
     if (level === "blocked") {
         return {
             title: "No-Go: Block Delete",
@@ -3253,9 +3256,9 @@ function getExecutiveDecision(summary) {
         };
     }
     return {
-        title: "Go",
+        title: "Review complete",
         className: "safe",
-        detail: "No direct blockers detected in checked domains.",
+        detail: "No direct blockers detected within the collected scope. This is not approval to delete.",
     };
 }
 
@@ -3334,7 +3337,7 @@ function renderGroupImpact(result) {
     const completeness = summary?.completeness || {};
     const executive = getExecutiveDecision(summary);
     const sortedDomains = [...domains].sort((left, right) => (right.count || 0) - (left.count || 0));
-    const topDomains = sortedDomains.filter(domain => (domain.count || 0) > 0).slice(0, 10);
+    const topDomains = sortedDomains.filter(domain => (domain.count || 0) > 0);
     const partialDomains = sortedDomains.filter(domain => domain.status && domain.status !== "ok");
     const topEvidence = getTopEvidence(sortedDomains, 5);
     const checklistState = getChecklistState(groupId);
@@ -3355,7 +3358,7 @@ function renderGroupImpact(result) {
         <div class="gi-score-wrap">
             <div class="gi-score-meta">
                 <span>Delete recommendation</span>
-                <strong>${escHtml(summary.riskLabel || "Safe")}</strong>
+                <strong>${escHtml(summary.riskLabel || "Review required")}</strong>
             </div>
             <div class="gi-score-bar"><span style="width:${scorePercent}%"></span></div>
             <div class="gi-note">${escHtml(summary.recommendation || "No recommendation available.")}</div>
@@ -3478,7 +3481,7 @@ function renderGroupImpact(result) {
         ` : ""}
         <div class="gi-ready-banner" hidden>
             <span>All remediation steps complete</span>
-            <strong>Ready to Delete</strong>
+            <strong>Checklist complete — verify with a fresh scan</strong>
         </div>
         <div class="gi-domains">${domainHtml}</div>
     `;
@@ -3565,15 +3568,8 @@ async function loadGroupImpact(groupId) {
         return;
     }
 
-    if (groupImpactCache.has(groupId)) {
-        if (requestId === groupImpactRequestId) {
-            renderGroupImpact(groupImpactCache.get(groupId));
-        }
-        return;
-    }
-
     try {
-        const response = await fetch(`/api/impact/group/${groupId}`);
+        const response = await fetch(`/api/impact/group/${groupId}?fresh=1`);
         const data = await response.json();
         if (requestId !== groupImpactRequestId) return;
 
@@ -3603,7 +3599,7 @@ async function exportGroupImpactReport(groupId) {
         return;
     }
     try {
-        const response = await fetch(`/api/impact/group/${groupId}`);
+        const response = await fetch(`/api/impact/group/${groupId}?fresh=1`);
         const data = await response.json();
         if (!response.ok) {
             showToast(data.error || "Impact export failed", "error");
@@ -3639,7 +3635,7 @@ async function exportGroupImpactCsv(groupId) {
             data = getTutorialImpactResult(groupId);
             if (!data) return;
         } else {
-            const response = await fetch(`/api/impact/group/${groupId}`);
+            const response = await fetch(`/api/impact/group/${groupId}?fresh=1`);
             data = await response.json();
             if (!response.ok) {
                 showToast(data.error || "CSV export failed", "error");
@@ -3748,7 +3744,7 @@ async function exportGroupImpactTxt(groupId) {
         }
 
         const content = await response.text();
-        const metaResponse = await fetch(`/api/impact/group/${groupId}`);
+        const metaResponse = await fetch(`/api/impact/group/${groupId}?fresh=1`);
         const meta = await metaResponse.json();
         const groupName = String(meta?.group?.displayName || groupId);
 
@@ -3798,7 +3794,7 @@ async function exportGroupImpactHtml(groupId) {
         }
 
         const content = await response.text();
-        const metaResponse = await fetch(`/api/impact/group/${groupId}`);
+        const metaResponse = await fetch(`/api/impact/group/${groupId}?fresh=1`);
         const meta = await metaResponse.json();
         const groupName = String(meta?.group?.displayName || groupId);
 
@@ -3930,7 +3926,7 @@ function buildDetailRows(type, data) {
         pushRow("Object ID", escHtml(data.id), true);
     }
 
-    if (type === "app") {
+    if (type === "app" || type === "enterprise_app") {
         pushRow("Publisher", escHtml(data.publisher || data.publisherName));
         pushRow("App type", escHtml(data["@odata.type"] || data.servicePrincipalType));
         pushRow("Description", escHtml(data.description));

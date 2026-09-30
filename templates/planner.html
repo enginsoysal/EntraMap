@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Change Planner · EntraMap</title>
+  <link rel="icon" href="/static/brand/favicon.svg">
+  <link rel="stylesheet" href="/static/css/planner.css?v={{ version }}">
+</head>
+<body data-signed-in="{{ 'true' if user else 'false' }}">
+<header><a href="/" class="brand"><img src="/static/brand/logo.svg" alt="">EntraMap <small>0.6.0</small></a><nav><a href="/">Relationship map</a><span>{{ user.name if user else 'Demo workspace' }}</span></nav></header>
+<main>
+  <section class="intro"><div><p class="eyebrow">CHANGE INTELLIGENCE</p><h1>Know what changes.<br><span>Verify what remains.</span></h1><p>Prepare a group replacement or retirement with captured evidence, assignment comparisons and a fresh verification scan.</p></div><aside><strong>Observe → Compare → Verify</strong><p>EntraMap reads your directory. Perform approved changes in your usual admin tools, then return to verify.</p><p>Results describe collected references, not effective access or approval to delete.</p></aside></section>
+  <section class="labs"><div><strong>Explore a community lab</strong><p>Entirely synthetic data. No sign-in or tenant changes.</p></div><button data-lab="application">Application replacement</button><button data-lab="conditional-access">CA exception review</button><button data-lab="intune">Intune targeting</button></section>
+  <div id="planner-status" role="status" aria-live="polite">Choose a lab or capture a source group.</div>
+  <div class="workspace">
+    <section class="card"><p class="eyebrow">01 · CAPTURE</p><h2>Source group</h2>
+      <label for="source-query">Find a group or enter its object ID</label><div class="input-row"><input id="source-query" placeholder="Group name or object ID" autocomplete="off"><button id="search-source">Search</button></div><div id="source-results" class="search-results"></div>
+      <button id="capture-before" class="primary">Capture baseline</button><div id="before-summary" class="scan-summary">No baseline captured.</div>
+      <div class="file-actions"><button id="save-before" disabled>Save baseline</button><label class="file-button">Import baseline<input id="import-before" type="file" accept=".json,application/json"></label></div>
+    </section>
+    <section class="card"><p class="eyebrow">02 · COMPARE</p><h2>Replacement or later scan</h2>
+      <label for="target-query">Find the replacement group or enter its object ID</label><div class="input-row"><input id="target-query" placeholder="Replacement group name or object ID" autocomplete="off"><button id="search-target">Search</button></div><div id="target-results" class="search-results"></div>
+      <div class="actions"><button id="capture-target">Scan replacement</button><button id="capture-after">Re-scan source</button></div><div id="after-summary" class="scan-summary">No comparison scan captured.</div>
+      <div class="file-actions"><button id="save-after" disabled>Save comparison scan</button><label class="file-button">Import comparison<input id="import-after" type="file" accept=".json,application/json"></label></div>
+    </section>
+  </div>
+  <section class="card compare-controls"><div><label for="compare-mode">Comparison mode</label><select id="compare-mode"><option value="replacement">Compare replacement assignments</option><option value="verification">Verify changes to the source group</option></select></div><button id="run-compare" class="primary" disabled>Compare evidence</button><div id="demo-actions" hidden><button id="demo-verify">Demo: verify removal</button><button id="demo-unavailable">Demo: lost visibility</button></div></section>
+  <section id="report" class="card" hidden><div class="report-head"><div><p class="eyebrow">03 · REVIEW & VERIFY</p><h2 id="report-title">Evidence comparison</h2></div><div class="actions"><button id="export-json">Export JSON dossier</button><button id="export-html">Export HTML dossier</button></div></div>
+    <label class="check"><input id="pseudonymize" type="checkbox"> Pseudonymize exports (omit original snapshots and raw evidence)</label>
+    <div id="report-counts" class="counts"></div><div id="report-notes"></div><div id="member-diff"></div><div id="coverage-issues"></div>
+    <label for="row-filter">Filter findings</label><select id="row-filter"><option value="all">All findings</option><option value="attention">Needs attention</option><option value="unknown">Unknown / incomplete</option></select>
+    <div id="report-rows"></div>
+    <p class="footnote">Snapshots are kept in this page's memory. Save them before leaving. Original signed snapshots can be compared for 24 hours on this deployment, using the same tenant and account. A page refresh clears this workspace.</p>
+  </section>
+  <footer>EntraMap · Read-only change planning · <a href="https://github.com/enginsoysal/EntraMap">Source & community</a></footer>
+</main>
+<script src="/static/js/planner.js?v={{ version }}"></script>
+</body></html>

@@ -2,9 +2,39 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-Version 0.5.6
+Version 0.6.0
 
 EntraMap is a Flask web application that signs users in with Microsoft Entra ID and visualizes tenant relationships as an interactive graph. It helps you explore users, devices, groups, applications, and Conditional Access policies from a single screen.
+
+## Change Intelligence · 0.6.0
+
+Open **Change Planner** from the relationship map, or visit `/planner`.
+Capture a source group, compare a replacement group's assignments, then capture a
+later scan of the source to inspect removed, changed and remaining references.
+
+- Signed, immutable snapshots tied to the capturing tenant and account, valid for comparison for 24 hours.
+- Semantic comparison of app roles, CA inclusion/exclusion, Intune intent/settings/filters and disabled license plans.
+- Direct membership differences, explicit collection failures and pagination limits.
+- JSON/HTML change dossiers generated from exactly the selected snapshots, with optional pseudonymization.
+- Three public synthetic labs: application replacement, CA exception review and Intune targeting.
+- Enterprise applications have their own navigation; indirect membership is distinguished from direct assignments.
+
+Snapshots stay in page memory until explicitly downloaded. Reloading closes the workspace.
+Saved snapshots contain directory information; pseudonymized dossiers omit original snapshots,
+identifiers, names and raw evidence. Signatures verify integrity, not confidentiality.
+Keep `FLASK_SECRET_KEY` stable across workers and restarts. Rotating it invalidates saved signatures.
+
+The planner performs no directory writes. Compare results describe collected references,
+not effective access, complete tenant coverage or permission to delete. Unknown visibility
+is never reported as a removed dependency. Microsoft 365 content, PIM, nested groups and
+governance changes require manual review. See [community labs](docs/CHANGE_PLANNER.md)
+for repeatable examples, scope and validation guidance.
+
+Run the regression suite before deployment:
+
+```sh
+python -m unittest discover -s tests -v
+```
 
 ## Features
 

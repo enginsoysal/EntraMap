@@ -1,6 +1,6 @@
 # Files Reference
 
-Version 0.5.6
+Version 0.6.0
 
 This file describes the purpose of each file in the repository.
 
@@ -188,3 +188,14 @@ Brand assets (logo, favicon, social preview, and quarantine candidates).
 
 ### scripts/
 Operational utility scripts for local validation and maintenance.
+
+## Change Intelligence (0.6.0)
+
+- `engines/change_planner.py`: signed snapshots, semantic comparison and pseudonymization.
+- `engines/planner_demo.py`: isolated synthetic community labs.
+- `engines/enterprise_app_engine.py`: service principal assignment navigation.
+- `services/scan_service.py`: request-local coverage tracing across thread pools.
+- `services/planner_routes.py`: planner scan, compare and dossier API.
+- `templates/planner.html`, `static/js/planner.js`, `static/css/planner.css`: dedicated responsive change workspace.
+- `tests/`: regression tests for identity, Graph transport, comparison and HTTP boundaries.
+- `docs/CHANGE_PLANNER.md`: community labs and scope.

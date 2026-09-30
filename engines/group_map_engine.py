@@ -10,7 +10,8 @@ PERFORMANCE OPTIMIZATIONS:
 
 from typing import Tuple, List, Dict
 from services.graph_service import GraphService
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import as_completed
+from services.scan_service import ThreadPoolExecutor
 from engines.group_impact_engine import GroupImpactEngine
 
 
@@ -81,7 +82,11 @@ class GroupMapEngine:
             return "ca_policy"
         if domain_key == "group_nesting":
             return "group"
-        return "app"
+        if domain_key == "enterprise_apps":
+            return "enterprise_app"
+        if domain_key == "intune_apps":
+            return "app"
+        return "impact_resource"
 
     @staticmethod
     def _domain_edge_label(domain_key: str, finding: Dict) -> str:
@@ -165,11 +170,13 @@ class GroupMapEngine:
             node_type = GroupMapEngine._domain_node_type(domain_key)
 
             for finding in findings:
-                resource_id = str(finding.get("id", "")).strip()
+                resource_id = str(finding.get("resourceId") or finding.get("id", "")).strip()
                 if not resource_id:
                     generated_index += 1
                     resource_id = f"impact::{domain_key}::{generated_index}"
 
+                if node_type == "impact_resource":
+                    resource_id = f"impact::{domain_key}::{resource_id}"
                 resource_name = finding.get("name") or domain_label
                 severity = finding.get("severity", "warning")
                 edge_label = GroupMapEngine._domain_edge_label(domain_key, finding)
@@ -192,6 +199,7 @@ class GroupMapEngine:
                             "impactDomainKey": domain_key,
                             "impactSeverity": severity,
                             "impactType": finding.get("impact", ""),
+                            "evidence": finding.get("evidence", {}),
                             "type": node_type,
                         },
                     }
@@ -268,7 +276,7 @@ class GroupMapEngine:
                 try:
                     sp_id, sp = future.result()
                     if sp and "error" not in sp:
-                        add_node({"id": sp["id"], "label": sp.get("displayName", "App"), "type": "app", "data": GroupMapEngine._clean(sp)})
+                        add_node({"id": sp["id"], "label": sp.get("displayName", "App"), "type": "enterprise_app", "data": GroupMapEngine._clean(sp)})
                         if sp_id in node_ids:
                             edges.append({"source": group["id"], "target": sp["id"], "label": "access to"})
                 except Exception:
@@ -298,9 +306,9 @@ class GroupMapEngine:
             u_cond = cond.get("users", {})
             inc_groups = u_cond.get("includeGroups", [])
             exc_groups = u_cond.get("excludeGroups", [])
-            if group_id in inc_groups and group_id not in exc_groups:
+            if group_id in inc_groups or group_id in exc_groups:
                 add_node({"id": policy["id"], "label": policy.get("displayName", "CA Policy"), "type": "ca_policy", "data": GroupMapEngine._clean(policy)})
-                edges.append({"source": group["id"], "target": policy["id"], "label": "affected by"})
+                edges.append({"source": group["id"], "target": policy["id"], "label": "excluded from" if group_id in exc_groups else "in policy scope"})
 
         return nodes, edges, None
 

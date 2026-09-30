@@ -29,6 +29,8 @@ from config.config import Config
 from services.session_service import SessionService
 from services.photo_service import PhotoService
 from services.cache_service import CacheService
+from services.scan_service import capture
+from services.planner_routes import create_planner
 
 from engines.auth_engine import AuthEngine
 from engines.user_search_engine import UserSearchEngine
@@ -117,6 +119,7 @@ def create_app() -> Flask:
     """Create and configure Flask application"""
     app = Flask(__name__)
     app.secret_key = Config.SECRET_KEY
+    app.config["MAX_CONTENT_LENGTH"] = 8 * 1024 * 1024
     configure_telemetry(app)
     
     # Enable Gzip compression for JSON responses (reduces size by ~70%)
@@ -150,14 +153,14 @@ def create_app() -> Flask:
 
     Session(app)
 
-    # Keep local host consistent with REDIRECT_URI to preserve session cookies.
+    # Start sign-in on the callback origin so its host-only session cookie returns.
     parsed_redirect = urlparse(Config.REDIRECT_URI) if Config.REDIRECT_URI else None
     redirect_host = parsed_redirect.hostname if parsed_redirect else None
     redirect_port = parsed_redirect.port if parsed_redirect else None
     redirect_scheme = parsed_redirect.scheme if parsed_redirect else None
 
     @app.before_request
-    def enforce_local_canonical_host():
+    def enforce_canonical_host():
         if not redirect_host:
             return None
 
@@ -167,7 +170,14 @@ def create_app() -> Flask:
         if request_host == redirect_host.lower():
             return None
 
-        if {request_host, redirect_host.lower()}.issubset(localhost_aliases):
+        local_alias = {request_host, redirect_host.lower()}.issubset(localhost_aliases)
+        public_entry = (
+            redirect_scheme == "https"
+            and redirect_host.lower() not in localhost_aliases
+            and request.method == "GET"
+            and request.path in {"/", "/planner", "/auth/signin"}
+        )
+        if local_alias or public_entry:
             scheme = redirect_scheme or request.scheme
             target = f"{scheme}://{redirect_host}"
             if redirect_port:
@@ -427,9 +437,9 @@ def _get_executive_decision(summary: dict) -> dict:
             "detail": "Proceed only after remediating warnings and validating constrained domains.",
         }
     return {
-        "title": "Go",
+        "title": "Review complete",
         "class_name": "safe",
-        "detail": "No direct blockers detected in checked domains.",
+        "detail": "No direct blockers detected within the collected scope. This is not approval to delete.",
     }
 
 
@@ -733,13 +743,17 @@ def login_required(f):
                 return jsonify({"error": "Session expired"}), 401
             return redirect(url_for("index", login_error="Session expired. Please sign in again."))
         
-        return f(*args, **kwargs)
+        with capture(fresh=request.args.get("fresh") == "1"):
+            return f(*args, **kwargs)
     return decorated
 
 
 # ────────────────────────────────────────────────────────────────────────────
 # Routes: Main Page
 # ────────────────────────────────────────────────────────────────────────────
+
+app.register_blueprint(create_planner(auth_engine, login_required))
+
 
 @app.route("/")
 def index():
@@ -1034,7 +1048,9 @@ def auth_callback():
     success, message, user_info = auth_engine.handle_callback(session, code, state)
 
     if success:
+        session.pop("planner", None)
         SessionService.set_user(session, user_info)
+        app.session_interface.regenerate(session)
         if use_popup:
             return render_template("auth_popup_done.html", success=True, message="Sign-in completed. You can close this window.")
         return redirect(url_for("index"))
@@ -1187,6 +1203,16 @@ def app_map(app_id):
     return jsonify({"nodes": nodes, "edges": edges})
 
 
+@app.route("/api/map/enterprise_app/<app_id>")
+@login_required
+def enterprise_app_map(app_id):
+    from engines.enterprise_app_engine import EnterpriseAppEngine
+    nodes, edges, error = EnterpriseAppEngine.build(app_id, auth_engine.get_token(session))
+    if error:
+        return jsonify(error), error.get("status", 502)
+    return jsonify({"nodes": nodes, "edges": edges})
+
+
 @app.route("/api/map/ca_policy/<policy_id>")
 @login_required
 def ca_policy_map(policy_id):
@@ -1285,7 +1311,8 @@ def get_details(object_type, object_id):
         "group": f"/groups/{object_id}",
         "device": f"/devices/{object_id}",
         "app": f"/deviceAppManagement/mobileApps/{object_id}",
-        "ca_policy": f"/identity/conditionalAccessPolicies/{object_id}",
+        "enterprise_app": f"/servicePrincipals/{object_id}",
+        "ca_policy": f"/identity/conditionalAccess/policies/{object_id}",
     }
     
     if object_type not in endpoints:
