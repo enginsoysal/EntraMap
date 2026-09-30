@@ -296,7 +296,7 @@ class CanonicalHostTests(unittest.TestCase):
     def test_public_entries_use_callback_origin_before_creating_state(self):
         with patch.object(Config, 'REDIRECT_URI', 'https://entramap.com/auth/callback'):
             client = create_app().test_client()
-        for path in ('/', '/planner', '/auth/signin?popup=1'):
+        for path in ('/', '/planner', '/docs', '/docs/', '/auth/signin?popup=1'):
             response = client.get(path, base_url='https://example.azurewebsites.net')
             self.assertEqual(response.status_code, 302)
             self.assertEqual(response.location, 'https://entramap.com' + path)

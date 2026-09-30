@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Documentation · EntraMap {{ version }}</title>
+  <meta name="description" content="The complete EntraMap operator guide: every control, relationship maps, group impact, Change Planner, screenshots, permissions and troubleshooting.">
+  <link rel="icon" href="/static/brand/favicon.svg" type="image/svg+xml">
+  <link rel="canonical" href="https://entramap.com/docs">
+  <link rel="stylesheet" href="/static/css/docs.css?v={{ version }}">
+  <script src="/static/js/docs.js?v={{ version }}" defer></script>
+</head>
+<body>
+<a class="skip" href="#content">Skip to documentation</a>
+<header class="docs-header">
+  <a class="brand" href="/"><img src="/static/brand/logo.svg" alt=""><span>EntraMap <small>Documentation</small></span></a>
+  <nav aria-label="Product"><a href="/">Relationship map</a><a href="/planner">Change Planner</a><a href="https://github.com/enginsoysal/EntraMap" target="_blank" rel="noopener noreferrer">GitHub ↗</a></nav>
+</header>
+<div class="docs-layout">
+<aside class="sidebar">
+  <label for="docs-search">Find a button or topic</label>
+  <div class="search-box"><input id="docs-search" type="search" placeholder="Try: Export, CAB, unknown…" autocomplete="off"><button id="docs-clear" type="button" aria-label="Clear search">×</button></div>
+  <p id="search-status" role="status" aria-live="polite">{{ guide.sections|length }} chapters · {{ control_count }} controls</p>
+  <nav aria-label="Documentation chapters" id="chapter-nav">{% for section in guide.sections %}<a href="#{{ section.id }}"><span>{{ '%02d'|format(loop.index) }}</span> {{ section.title }}</a>{% endfor %}</nav>
+  <a class="index-link" href="#button-index">All controls A–Z ↓</a>
+  <button id="docs-print" type="button">Print / Save as PDF</button>
+  <p class="sidebar-note">Product {{ version }}<br>Reviewed {{ guide.reviewed }}<br>Public guide · no sign-in required</p>
+</aside>
+<main id="content" tabindex="-1">
+  <div class="hero">
+    <p class="eyebrow">THE OPERATOR'S HANDBOOK / {{ version }}</p>
+    <h1>Understand every click.</h1>
+    <p class="lead">From your first relationship map to a documented change review. Every control, its effect, and the evidence you need to interpret the result.</p>
+    <div class="hero-stats"><span><strong>{{ guide.sections|length }}</strong> chapters</span><span><strong>{{ control_count }}</strong> controls</span><span><strong>{{ guide.screenshots|length }}</strong> screenshots</span></div>
+    <div class="notice">EntraMap reads Microsoft Graph. It does not change assignments, migrate content or delete groups. Results describe collected evidence within the visible scan coverage.</div>
+    <div class="quick-links"><a href="#quickstart">Start in 5 minutes →</a><a href="#planner-workflow">Plan a group change →</a><a href="#troubleshooting">Resolve a problem →</a></div>
+  </div>
+  <p id="no-results" hidden>No matching chapter. Try a shorter term, an exact button label, or clear search.</p>
+  {% for section in guide.sections %}
+  <section class="chapter" id="{{ section.id }}" data-search="{{ (section|tojson)|forceescape }}" aria-labelledby="heading-{{ section.id }}">
+    <div class="chapter-heading"><span class="chapter-number">{{ '%02d'|format(loop.index) }}</span><h2 id="heading-{{ section.id }}">{{ section.title }}</h2><a href="#{{ section.id }}" aria-label="Link to {{ section.title }}">#</a></div>
+    {% for paragraph in section.get('paragraphs', []) %}<p>{{ paragraph }}</p>{% endfor %}
+    {% if section.get('steps') %}<ol class="steps">{% for step in section.steps %}<li>{{ step }}</li>{% endfor %}</ol>{% endif %}
+    {% for shot_id in section.get('screenshots', []) %}{% set shot = guide.screenshots[shot_id] %}
+    <figure><a href="/static/docs/{{ shot.file }}" target="_blank" rel="noopener" aria-label="Open full-size screenshot: {{ shot.alt }}"><img src="/static/docs/{{ shot.file }}" alt="{{ shot.alt }}" width="{{ shot.width }}" height="{{ shot.height }}"></a><figcaption>{{ shot.caption }} <span>Open image for full size ↗</span></figcaption></figure>
+    {% endfor %}
+    {% if section.get('controls') %}<div class="control-list">{% for control in section.controls %}<article class="control" id="control-{{ control.key }}"><h3>{{ control.label }} <a href="#control-{{ control.key }}" aria-label="Link to {{ control.label }}">#</a></h3><p>{{ control.description }}</p>{% if control.get('note') %}<p class="control-note">{{ control.note }}</p>{% endif %}</article>{% endfor %}</div>{% endif %}
+    {% if section.get('table') %}<div class="table-wrap" tabindex="0" role="region" aria-label="{{ section.title }} reference"><table><thead><tr>{% for cell in section.table.headers %}<th scope="col">{{ cell }}</th>{% endfor %}</tr></thead><tbody>{% for row in section.table.rows %}<tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div>{% endif %}
+    {% if section.get('note') %}<aside class="notice">{{ section.note }}</aside>{% endif %}
+    <a class="back-top" href="#content">Back to top ↑</a>
+  </section>
+  {% endfor %}
+  <section id="button-index" class="button-index"><h2>All controls A–Z</h2><p>Exact labels and named interactions. Follow a link for location, behavior and limitations. Search above filters chapters; this index remains available.</p><ul>{% for section in guide.sections %}{% for control in section.get('controls', []) %}<li><a href="#control-{{ control.key }}">{{ control.label }}</a><small>{{ section.title }}</small></li>{% endfor %}{% endfor %}</ul></section>
+  <footer><p>All product screenshots use built-in synthetic tutorials or community labs. No live tenant data is shown. Some controls appear only after selecting an object or loading a report.</p><p>Found a documentation gap? <a href="https://github.com/enginsoysal/EntraMap/issues" target="_blank" rel="noopener noreferrer">Open an issue on GitHub ↗</a> with the button label and product version. Omit tenant evidence and credentials.</p></footer>
+</main>
+</div>
+</body></html>

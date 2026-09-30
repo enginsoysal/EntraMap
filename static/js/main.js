@@ -1361,8 +1361,15 @@ function renderTutorialComparePanel(panel, groupId) {
         </div>
     `;
 
-    panel.querySelector("#gi-compare-open-standard")?.addEventListener("click", () => loadTutorialMap("group", groupId, "standard"));
-    panel.querySelector("#gi-compare-open-impact")?.addEventListener("click", () => loadTutorialMap("group", groupId, "impact"));
+    const openTutorialProjection = mode => {
+        loadTutorialMap("group", groupId, mode);
+        // Rebuilding details replaces this panel. Keep the comparison exports
+        // available for the next steps of the Advanced walkthrough.
+        const nextPanel = getElement("group-impact-panel");
+        if (nextPanel) renderTutorialComparePanel(nextPanel, groupId);
+    };
+    panel.querySelector("#gi-compare-open-standard")?.addEventListener("click", () => openTutorialProjection("standard"));
+    panel.querySelector("#gi-compare-open-impact")?.addEventListener("click", () => openTutorialProjection("impact"));
     panel.querySelector("#gi-compare-export-json")?.addEventListener("click", () => showToast("Tutorial compare JSON export complete", "info"));
     panel.querySelector("#gi-compare-export-csv")?.addEventListener("click", () => showToast("Tutorial compare CSV export complete", "info"));
 
@@ -2329,10 +2336,6 @@ async function loadGroupImpactMap(groupId) {
 }
 
 async function compareGroupMaps(groupId) {
-    if (!APP_CONTEXT.signedIn) {
-        showToast("Sign in required", "error");
-        return;
-    }
     if (!groupId) return;
 
     const panel = getElement("group-impact-panel");
@@ -2340,6 +2343,11 @@ async function compareGroupMaps(groupId) {
 
     if (tutorialState.active && String(groupId || "").startsWith("tutorial-")) {
         renderTutorialComparePanel(panel, groupId);
+        return;
+    }
+
+    if (!APP_CONTEXT.signedIn) {
+        showToast("Sign in required", "error");
         return;
     }
 

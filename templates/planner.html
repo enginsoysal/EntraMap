@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="/static/css/planner.css?v={{ version }}">
 </head>
 <body data-signed-in="{{ 'true' if user else 'false' }}">
-<header><a href="/" class="brand"><img src="/static/brand/logo.svg" alt="">EntraMap <small>0.6.0</small></a><nav><a href="/">Relationship map</a><span>{{ user.name if user else 'Demo workspace' }}</span></nav></header>
+<header><a href="/" class="brand"><img src="/static/brand/logo.svg" alt="">EntraMap <small>0.6.0</small></a><nav><a href="/">Relationship map</a><a href="/docs">Documentation</a><span>{{ user.name if user else 'Demo workspace' }}</span></nav></header>
 <main>
   <section class="intro"><div><p class="eyebrow">CHANGE INTELLIGENCE</p><h1>Know what changes.<br><span>Verify what remains.</span></h1><p>Prepare a group replacement or retirement with captured evidence, assignment comparisons and a fresh verification scan.</p></div><aside><strong>Observe → Compare → Verify</strong><p>EntraMap reads your directory. Perform approved changes in your usual admin tools, then return to verify.</p><p>Results describe collected references, not effective access or approval to delete.</p></aside></section>
   <section class="labs"><div><strong>Explore a community lab</strong><p>Entirely synthetic data. No sign-in or tenant changes.</p></div><button data-lab="application">Application replacement</button><button data-lab="conditional-access">CA exception review</button><button data-lab="intune">Intune targeting</button></section>
