@@ -4,6 +4,10 @@
 
 Version 0.6.0
 
+**[Complete operator documentation](https://entramap.com/docs)** — every control,
+13 screenshots, relationship maps, all 20 impact domains, Change Planner workflows,
+snapshot/export formats, permissions and troubleshooting. Public and searchable.
+
 EntraMap is a Flask web application that signs users in with Microsoft Entra ID and visualizes tenant relationships as an interactive graph. It helps you explore users, devices, groups, applications, and Conditional Access policies from a single screen.
 
 ## Change Intelligence · 0.6.0

@@ -31,6 +31,7 @@ from services.photo_service import PhotoService
 from services.cache_service import CacheService
 from services.scan_service import capture
 from services.planner_routes import create_planner
+from services.docs_routes import create_docs
 
 from engines.auth_engine import AuthEngine
 from engines.user_search_engine import UserSearchEngine
@@ -175,7 +176,7 @@ def create_app() -> Flask:
             redirect_scheme == "https"
             and redirect_host.lower() not in localhost_aliases
             and request.method == "GET"
-            and request.path in {"/", "/planner", "/auth/signin"}
+            and request.path in {"/", "/planner", "/docs", "/docs/", "/auth/signin"}
         )
         if local_alias or public_entry:
             scheme = redirect_scheme or request.scheme
@@ -753,6 +754,7 @@ def login_required(f):
 # ────────────────────────────────────────────────────────────────────────────
 
 app.register_blueprint(create_planner(auth_engine, login_required))
+app.register_blueprint(create_docs(Config.VERSION))
 
 
 @app.route("/")

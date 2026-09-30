@@ -3111,3 +3111,8 @@ body {
 }
 
 .planner-entry{display:flex;justify-content:space-between;align-items:center;margin:12px 16px;padding:12px 15px;background:#123a40;border:1px solid #38786e;border-radius:9px;color:#a3f3df;text-decoration:none;font-weight:700}.planner-entry span{font-size:10px;letter-spacing:1px}
+
+.docs-entry{display:flex;justify-content:space-between;gap:8px;margin:0 14px 10px;padding:8px 10px;color:var(--text-muted);font-size:.75rem;text-decoration:none;border:1px solid var(--border);border-radius:8px}.docs-entry span{font-size:.65rem}.docs-entry:hover{color:var(--text-primary)}
+
+/* Comparison cards live inside the fixed-width detail pane. */
+#detail-panel .gi-compare-grid,#detail-panel .gi-edge-grid,#detail-panel .gi-compare-controls{grid-template-columns:1fr}

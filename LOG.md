@@ -2,6 +2,11 @@
 
 ## 0.6.0 - 2026-09-30
 
+- Added public documentation at `/docs`: 24 chapters, a searchable control index, synthetic screenshots and print styling.
+- Added documentation coverage checks for UI controls, permission scopes, impact domains, anchors and image assets.
+- Corrected delegated-permission wording and guest Advanced tutorial comparison/export navigation.
+- Made map comparison cards readable inside the fixed-width detail pane.
+
 - Introduced Change Planner with signed baseline/replacement/verification snapshots.
 - Added semantic assignment and direct membership comparisons, with explicit unknown states.
 - Added HTML/JSON change dossiers and allowlisted pseudonymized exports.
