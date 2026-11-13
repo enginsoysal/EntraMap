@@ -1568,6 +1568,8 @@
       "id": "operators",
       "title": "Self-hosting & operator reference",
       "paragraphs": [
+        "EntraMap is MIT-licensed and can run on your own infrastructure, including on-premises. The repository's docs/SELF_HOSTING.md guide covers installation, external connections, session storage, telemetry, access revocation and expired-credential recovery. Self-hosting does not remove Microsoft identity/Graph dependencies or automatically guarantee data residency.",
+        "AADSTS7000222 means the server's client secret has expired. The deployment operator must add a replacement credential, update CLIENT_SECRET, restart the application workers and test a fresh sign-in plus a read-only Graph operation. Never commit the secret. Record its expiry and arrange renewal alerts; EntraMap does not automatically renew it.",
         "The repository is the source of truth for deployment-specific settings. This page describes the 0.6.0 implementation. Use a stable HTTPS public origin with REDIRECT_URI ending /auth/callback, and configure the identical Web redirect URI in the Microsoft app registration.",
         "For production, protect CLIENT_SECRET and FLASK_SECRET_KEY in your hosting configuration. Keep the Flask secret identical across workers. Filesystem sessions on ephemeral container storage can disappear during restart; multi-instance deployments need a shared session backend such as the supported Redis option.",
         "The repository’s GitHub Actions validates Python regressions, frontend DOM tests and an HTTP smoke check before deploying main to Azure App Service. A successful deployment event can precede worker activation; verify public health/version and a fresh session after the new worker is serving.",
