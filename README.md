@@ -166,40 +166,30 @@ Create an app registration in Azure with these settings:
 
 ### Delegated Microsoft Graph Permissions
 
-Add these delegated permissions:
+The application currently requests these delegated permissions (the authoritative list is `Config.SCOPES` in `config/config.py`):
 
 - User.Read
+- User.Read.All
 - User.ReadBasic.All
 - Group.Read.All
 - Device.Read.All
-- DeviceManagementApps.Read.All
+- DeviceManagementManagedDevices.Read.All
 - Application.Read.All
+- DeviceManagementApps.Read.All
+- DeviceManagementConfiguration.Read.All
+- DeviceManagementServiceConfig.Read.All
+- CloudPC.Read.All
 - Policy.Read.All
 - RoleManagement.Read.Directory
-- Organization.Read.All
+- AdministrativeUnit.Read.All
 - EntitlementManagement.Read.All
 - Team.ReadBasic.All
 - Sites.Read.All
-- Tasks.Read
 - Directory.Read.All
 
-Optional (recommended if you want full Group Impact coverage without partial domains):
-
-- AdministrativeUnit.Read.All
-- DeviceManagementConfiguration.Read.All
-- DeviceManagementManagedDevices.Read.All
-- DeviceManagementServiceConfig.Read.All
-
-Notes:
-
-- RoleManagement.Read.Directory is used for IAM and PIM impact checks.
-- Organization.Read.All improves group-based licensing resolution.
-- EntitlementManagement.Read.All enables Entitlement Management policy coverage.
-- Team.ReadBasic.All improves Teams workload signal coverage.
-- Sites.Read.All improves SharePoint workload signal coverage.
-- Tasks.Read improves Planner workload signal coverage.
-- AdministrativeUnit.Read.All is used for Administrative Unit impact checks.
-- Even with correct Graph permissions, some results can still be partial when the signed-in account lacks sufficient Entra role visibility.
+These are delegated permissions, not application permissions. Administrator consent,
+user roles, workload licenses and endpoint availability independently affect coverage.
+Do not interpret an unavailable domain as having no impact.
 
 ### Consent Model
 
@@ -209,6 +199,13 @@ The first sign-in for a tenant must be completed by a role capable of granting t
 - Privileged Role Administrator
 
 After tenant-wide consent is granted once, regular users in that tenant can sign in without extra Azure setup.
+
+## Self-hosting and data control
+
+EntraMap can run on your own infrastructure, including on-premises or your own Azure
+environment. You do not need to use the public entramap.com deployment. See the
+[self-hosting guide](docs/SELF_HOSTING.md) for deployment steps, external connections,
+session and telemetry considerations, access revocation, and expired-secret recovery.
 
 ## Local Setup
 
